@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件批量重命名工具</title>
+<script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5;
+    color: #1f2937;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #fff;
+    padding: 24px 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  header h1 { font-size: 22px; margin-bottom: 4px; }
+  header p { font-size: 13px; opacity: .85; }
+  .container { max-width: 1140px; margin: 24px auto; padding: 0 20px; display:flex; flex-direction:column; }
+  #folderCard { order: 1; }
+  #excelCard { order: 2; }
+  #rulesCard { order: 3; }
+  #previewCard { order: 4; }
+  #rollbackCard { order: 5; }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 16px; color: #374151; display:flex; align-items:center; gap:8px;}
+  .card h2 .step { background:#2563eb; color:#fff; width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px; flex-shrink:0;}
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+    font-weight: 500;
+  }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+  .btn-secondary { background: #e5e7eb; color: #374151; }
+  .btn-secondary:hover { background: #d1d5db; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-danger:disabled { background: #fca5a5; cursor: not-allowed; }
+  .btn-success { background: #16a34a; color: #fff; }
+  .btn-success:hover { background: #15803d; }
+  .btn-success:disabled { background: #86efac; cursor: not-allowed; }
+  .folder-info {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px;
+  }
+  .folder-info.dragover { border-color: #2563eb; background: #eff6ff; }
+  .folder-info .name { font-weight: 600; color: #2563eb; word-break: break-all; }
+  .folder-info .count { color: #6b7280; font-size: 13px; }
+  .browser-note { font-size: 12px; color: #9ca3af; margin-top: 8px; }
+
+  .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px){ .rules-grid{grid-template-columns:1fr;} }
+  .rule { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+  .rule label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 10px; cursor: pointer;}
+  .rule input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
+  .rule .controls { display: none; }
+  .rule.active .controls { display: flex; flex-direction: column; gap: 8px; }
+  .rule input[type="text"], .rule input[type="number"], .rule select,
+  .field input[type="text"], .field input[type="number"], .field select, .excel-map select {
+    width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
+  }
+  .rule input:focus, .rule select:focus, .field input:focus, .field select:focus, .excel-map select:focus {
+    outline: 2px solid #93c5fd; border-color: #2563eb;
+  }
+  .inline { display: flex; gap: 8px; align-items: center; }
+  .inline label { font-weight: 400; margin: 0; font-size: 13px; color: #4b5563; white-space: nowrap;}
+  .inline input[type="number"] { width: 80px; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .search-box { flex:1; min-width: 160px; padding: 8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;}
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+  th { background: #f8fafc; color: #6b7280; font-weight: 600; position: sticky; top:0; z-index:1;}
+  tbody tr:hover { background: #f8fafc; }
+  td.old { color: #9ca3af; word-break: break-all; }
+  td.new { color: #2563eb; font-weight: 500; word-break: break-all; }
+  td.new.warn { color: #f59e0b; }
+  td.new.err { color: #ef4444; }
+  td.new.edit input { width:100%; padding:4px 6px; border:1px solid #93c5fd; border-radius:4px; font-size:13px; color:#2563eb; font-weight:500;}
+  .arrow { color: #cbd5e1; }
+  .table-wrap { max-height: 380px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .empty { text-align:center; color:#9ca3af; padding: 40px 0; }
+
+  .summary { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size:13px; color:#4b5563;}
+  .summary .badge { background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; font-weight:600;}
+  .summary .badge.warn { background:#fef3c7; color:#b45309; }
+  .summary .badge.err { background:#fee2e2; color:#b91c1c; }
+  .summary .badge.ok { background:#dcfce7; color:#15803d; }
+  .summary .badge.muted { background:#f3f4f6; color:#6b7280; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #111827; color: #fff; padding: 12px 24px; border-radius: 8px;
+    font-size: 14px; opacity: 0; transition: all .3s; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    max-width: 90%;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #16a34a; }
+  .toast.error { background: #ef4444; }
+
+  .rule-actions { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .preset-row { display:flex; gap:8px; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed #e5e7eb;}
+  .preset-row input { flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;}
+  .preset-row select { padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; max-width:200px;}
+
+  .history { max-height: 180px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; margin-top:12px;}
+  .history table td { font-size:12px; padding:6px 10px;}
+  .history .hdr { font-size:13px; color:#6b7280; font-weight:600; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;}
+
+  .footer { text-align:center; color:#9ca3af; font-size:12px; padding: 20px; }
+  .hidden { display: none !important; }
+
+  .excel-drop {
+    border: 2px dashed #cbd5e1; border-radius: 10px; padding: 22px 16px; text-align: center;
+    background: #f8fafc; cursor: pointer; transition: all .15s;
+  }
+  .excel-drop:hover, .excel-drop.dragover { border-color: #2563eb; background: #eff6ff; }
+  .excel-drop .big { font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+  .excel-drop .small { font-size: 12px; color: #9ca3af; }
+  .excel-file-name { font-weight: 600; color: #2563eb; word-break: break-all; }
+
+  .excel-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  @media (max-width: 800px){ .excel-map { grid-template-columns: 1fr 1fr; } }
+  .field label { display:block; font-size:12px; color:#6b7280; font-weight:600; margin-bottom:6px; }
+  .hint { font-size:12px; color:#6b7280; margin-top:12px; line-height:1.5; }
+  .match-opts { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:14px; font-size:13px; color:#374151; }
+  .match-opts label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .match-opts input { accent-color:#2563eb; }
+  .chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip { background:#eff6ff; color:#1d4ed8; font-size:12px; padding:3px 8px; border-radius:999px; }
+  .unmatched-box { margin-top:12px; border:1px solid #fde68a; background:#fffbeb; border-radius:8px; padding:10px 12px; font-size:12px; color:#92400e; }
+  .unmatched-box ul { margin:6px 0 0 18px; max-height:120px; overflow:auto; }
+  .ext-filters { display:flex; flex-wrap:wrap; gap:6px; }
+  .ext-filters button {
+    border:1px solid #d1d5db; background:#fff; border-radius:999px; padding:4px 10px;
+    font-size:12px; cursor:pointer; color:#4b5563;
+  }
+  .ext-filters button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .preview-note { font-size:12px; color:#9ca3af; margin-top:6px; }
+  textarea.paste-map {
+    width:100%; min-height:90px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;
+    font-size:13px; font-family: ui-monospace, Consolas, monospace; resize:vertical;
+  }
+  details.more { margin-top:12px; }
+  details.more summary { cursor:pointer; font-size:13px; color:#4b5563; font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📁 文件批量重命名工具</h1>
+  <p>选一次文件夹，Excel 对照和规则可同时用在同一批文件上 → 预览 → 一键应用（可回滚）。全部在本地完成。</p>
+</header>
+
+<div class="container">
+  <div class="card" id="folderCard">
+    <h2><span class="step">1</span> 选择文件夹</h2>
+    <div class="folder-info" id="folderDrop">
+      <button class="btn btn-primary" id="btnSelect">选择文件夹</button>
+      <span class="name" id="folderName">尚未选择文件夹</span>
+      <span class="count" id="fileCount"></span>
+    </div>
+    <div class="browser-note">
+      💡 选一次即可，下面的 Excel 对照和命名规则都作用在这个文件夹。Chrome / Edge 可直接改磁盘文件，也可把文件夹拖到虚线框。若浏览器不支持，可用「选择多个文件」仅预览。
+      <button class="btn btn-secondary" id="btnSelectFiles" style="padding:6px 12px;font-size:12px;margin-left:8px;">选择多个文件</button>
+    </div>
+  </div>
+
+  <div class="card" id="rulesCard">
+    <h2><span class="step">3</span> 配置命名规则（可叠在 Excel 对照之后）</h2>
+    <div class="rules-grid">
+      <div class="rule" id="rule-prefix">
+        <label><input type="checkbox" data-rule="prefix"> 添加前缀</label>
+        <div class="controls">
+          <input type="text" id="prefixVal" placeholder="例如：项目A_">
+        </div>
+      </div>
+      <div class="rule" id="rule-suffix">
+        <label><input type="checkbox" data-rule="suffix"> 添加后缀</label>
+        <div class="controls">
+          <input type="text" id="suffixVal" placeholder="例如：_final">
+        </div>
+      </div>
+      <div class="rule" id="rule-replace">
+        <label><input type="checkbox" data-rule="replace"> 查找 / 替换</label>
+        <div class="controls">
+          <div class="inline"><label>查找</label><input type="text" id="replaceFind" placeholder="要查找的内容"></div>
+          <div class="inline"><label>替换为</label><input type="text" id="replaceWith" placeholder="留空则删除"></div>
+          <label style="font-weight:400;font-size:13px;color:#4b5563;margin:0;">
+            <input type="checkbox" id="replaceRegex" style="width:auto;"> 使用正则表达式
+          </label>
+        </div>
+      </div>
+      <div class="rule" id="rule-remove">
+        <label><input type="checkbox" data-rule="remove"> 删除指定字符</label>
+        <div class="controls">
+          <input type="text" id="removeChars" placeholder="要删除的字符，如：-_（）">
+          <label style="font-weight:400;font-size:13px;color:#4b5563;margin:0;">
+            <input type="checkbox" id="removeRegex" style="width:auto;"> 视为正则表达式
+          </label>
+        </div>
+      </div>
+      <div class="rule" id="rule-insert">
+        <label><input type="checkbox" data-rule="insert"> 在指定位置插入文本</label>
+        <div class="controls">
+          <div class="inline"><label>文本</label><input type="text" id="insertText" placeholder="要插入的内容"></div>
+          <div class="inline">
+            <label>位置</label>
+            <select id="insertPos">
+              <option value="start">开头</option>
+              <option value="end">结尾</option>
+              <option value="index">第 N 个字符后</option>
+            </select>
+            <input type="number" id="insertIndex" value="3" min="0" style="width:70px;display:none;">
+          </div>
+        </div>
+      </div>
+      <div class="rule" id="rule-number">
+        <label><input type="checkbox" data-rule="number"> 添加序号</label>
+        <div class="controls">
+          <div class="inline">
+            <label>起始</label><input type="number" id="numStart" value="1" min="0">
+            <label>位数</label><input type="number" id="numPad" value="2" min="1" max="10">
+          </div>
+          <div class="inline">
+            <label>位置</label>
+            <select id="numPos">
+              <option value="before">名称之前</option>
+              <option value="after">名称之后</option>
+            </select>
+            <label>分隔符</label><input type="text" id="numSep" value="_" style="width:50px;">
+          </div>
+        </div>
+      </div>
+      <div class="rule" id="rule-date">
+        <label><input type="checkbox" data-rule="date"> 添加日期</label>
+        <div class="controls">
+          <div class="inline">
+            <label>格式</label>
+            <select id="dateFormat">
+              <option value="YYYY-MM-DD">2026-08-16</option>
+              <option value="YYYYMMDD">20260816</option>
+              <option value="YYYY-MM-DD_HH-mm">2026-08-16_17-24</option>
+              <option value="YYYY年MM月DD日">2026年08月16日</option>
+            </select>
+          </div>
+          <div class="inline">
+            <label>位置</label>
+            <select id="datePos">
+              <option value="before">名称之前</option>
+              <option value="after">名称之后</option>
+            </select>
+            <label>分隔符</label><input type="text" id="dateSep" value="_" style="width:50px;">
+          </div>
+        </div>
+      </div>
+      <div class="rule" id="rule-case">
+        <label><input type="checkbox" data-rule="case"> 转换大小写</label>
+        <div class="controls">
+          <select id="caseMode">
+            <option value="lower">全部小写</option>
+            <option value="upper">全部大写</option>
+            <option value="title">首字母大写</option>
+          </select>
+        </div>
+      </div>
+      <div class="rule" id="rule-convert">
+        <label><input type="checkbox" data-rule="convert"> 简体 / 繁体互转</label>
+        <div class="controls">
+          <select id="caseConvert">
+            <option value="s2t">简体 → 繁体</option>
+            <option value="t2s">繁体 → 简体</option>
+            <option value="s2tw">简体 → 繁体(台湾)</option>
+            <option value="s2hk">简体 → 繁体(香港)</option>
+            <option value="tw2s">繁体(台湾) → 简体</option>
+            <option value="hk2s">繁体(香港) → 简体</option>
+          </select>
+        </div>
+      </div>
+      <div class="rule" id="rule-space">
+        <label><input type="checkbox" data-rule="space"> 清理空格</label>
+        <div class="controls">
+          <select id="spaceMode">
+            <option value="remove">删除所有空格</option>
+            <option value="underscore">空格替换为下划线</option>
+            <option value="collapse">合并连续空格</option>
+          </select>
+        </div>
+      </div>
+      <div class="rule" id="rule-random">
+        <label><input type="checkbox" data-rule="random"> 随机名称</label>
+        <div class="controls">
+          <div class="inline">
+            <label>类型</label>
+            <select id="randomType">
+              <option value="uuid">UUID</option>
+              <option value="hex">随机十六进制</option>
+              <option value="word">随机单词</option>
+            </select>
+            <label>长度</label><input type="number" id="randomLen" value="8" min="1" max="32">
+          </div>
+        </div>
+      </div>
+      <div class="rule" id="rule-ext">
+        <label><input type="checkbox" data-rule="ext"> 扩展名处理</label>
+        <div class="controls">
+          <select id="extMode">
+            <option value="keep">保留原扩展名</option>
+            <option value="lower">扩展名转小写</option>
+            <option value="upper">扩展名转大写</option>
+            <option value="remove">移除扩展名</option>
+            <option value="custom">自定义扩展名</option>
+          </select>
+          <input type="text" id="extCustom" placeholder="新扩展名（不带点，如 png）" style="display:none;">
+        </div>
+      </div>
+    </div>
+    <div class="rule-actions">
+      <button class="btn btn-secondary" id="btnReset">重置规则</button>
+      <button class="btn btn-secondary" id="btnCopy">复制新名称</button>
+      <span style="flex:1"></span>
+      <label style="font-size:13px;color:#4b5563;display:flex;align-items:center;gap:6px;">
+        编号排序依据
+        <select id="sortMode" style="width:auto;padding:6px 8px;">
+          <option value="name">文件名</option>
+          <option value="size">文件大小</option>
+          <option value="date">修改时间</option>
+        </select>
+      </label>
+    </div>
+    <div class="preset-row">
+      <label style="font-size:13px;color:#4b5563;white-space:nowrap;">规则预设：</label>
+      <select id="presetSelect"><option value="">选择预设...</option></select>
+      <input type="text" id="presetName" placeholder="预设名称">
+      <button class="btn btn-secondary" id="btnSavePreset" style="padding:6px 12px;">保存当前规则</button>
+      <button class="btn btn-secondary" id="btnLoadPreset" style="padding:6px 12px;">应用</button>
+      <button class="btn btn-danger" id="btnDelPreset" style="padding:6px 12px;">删除</button>
+    </div>
+  </div>
+
+  <div class="card" id="excelCard">
+    <h2><span class="step">2</span> 用 Excel 对照改名（可选）</h2>
+    <div class="excel-drop" id="excelDrop">
+      <div class="big" id="excelDropTitle">点击或拖入 Excel / CSV</div>
+      <div class="small">支持 .xlsx .xls .csv .tsv · 表格只在浏览器里读，不会上传</div>
+      <div class="excel-file-name" id="excelFileName" style="margin-top:8px;"></div>
+    </div>
+    <input type="file" id="excelInput" accept=".xlsx,.xls,.csv,.tsv,.txt" class="hidden">
+
+    <div id="excelReady" class="hidden">
+      <div class="toolbar" style="margin-top:14px;">
+        <div class="field" style="min-width:180px;">
+          <label>工作表</label>
+          <select id="sheetSelect"></select>
+        </div>
+        <div class="chip-row" id="excelStats" style="align-self:flex-end;"></div>
+      </div>
+      <div class="excel-map">
+        <div class="field">
+          <label>原文件名所在列（可不含后缀）</label>
+          <select id="oldCol"></select>
+        </div>
+        <div class="field">
+          <label>新文件名主列</label>
+          <select id="newCol"></select>
+        </div>
+        <div class="field">
+          <label>附加信息列（可选）</label>
+          <select id="extraCol"></select>
+        </div>
+      </div>
+      <div class="match-opts">
+        <label>匹配方式
+          <select id="matchMode" style="width:auto;margin-left:6px;">
+            <option value="exact">忽略后缀，主名完全相同</option>
+            <option value="full">完整文件名（含后缀）</option>
+            <option value="startswith">文件名以 Excel 原名开头</option>
+            <option value="contains">文件名包含 Excel 原名</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
+        <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零（Excel 里 1 也能对上 001.jpg）</label>
+      </div>
+      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
+      <div id="unmatchedBox" class="unmatched-box hidden"></div>
+    </div>
+
+    <details class="more">
+      <summary>没有 Excel？也可以粘贴对照表（每行：原名 + 制表符或逗号 + 新名）</summary>
+      <div style="margin-top:10px;">
+        <textarea class="paste-map" id="pasteMap" placeholder="001&#9;张三访谈&#10;002&#9;李四讲座"></textarea>
+        <div style="margin-top:8px;">
+          <button class="btn btn-secondary" id="btnUsePaste" style="padding:6px 12px;">用这段对照表</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" id="previewCard">
+    <h2><span class="step">4</span> 预览与应用</h2>
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索文件名...">
+      <div class="ext-filters" id="extFilters"></div>
+      <button class="btn btn-secondary" id="btnSelectAll">全选</button>
+      <button class="btn btn-secondary" id="btnSelectMatched" title="只勾选将要改名的项">只选有变化</button>
+      <button class="btn btn-secondary" id="btnSelectNone">全不选</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30px;"><input type="checkbox" id="checkAll"></th>
+            <th>原文件名</th>
+            <th style="width:30px;"></th>
+            <th>新文件名（可双击修改）</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="4" class="empty">请先选择文件夹</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="preview-note">先按 Excel 对照（若已上传），再套用已勾选的规则。双击新文件名可单独改一条。橙色=目标名冲突，红色=名称不合法。</div>
+    <div class="summary">
+      <span class="badge" id="sumSelected">已选 0 项</span>
+      <span class="badge ok" id="sumChange">将改名 0</span>
+      <span class="badge warn" id="sumWarn">冲突 0</span>
+      <span class="badge err" id="sumErr">错误 0</span>
+      <span class="badge muted" id="sumSkip">未匹配 0</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-success" id="btnApply" disabled>应用重命名</button>
+    </div>
+  </div>
+
+  <div class="card" id="rollbackCard">
+    <h2><span class="step">5</span> 回滚（撤销）</h2>
+    <div class="history">
+      <div class="hdr">
+        <span>操作历史（已写入文件夹）</span>
+        <span style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="btnUndo" disabled style="padding:4px 12px;font-size:12px;">撤销上一次</button>
+          <button class="btn btn-danger" id="btnRollbackAll" disabled style="padding:4px 12px;font-size:12px;">全部回滚</button>
+        </span>
+      </div>
+      <table>
+        <thead><tr><th>原名称</th><th style="width:30px;"></th><th>新名称</th></tr></thead>
+        <tbody id="historyBody"><tr><td colspan="3" class="empty">暂无操作记录</td></tr></tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;color:#9ca3af;margin-top:8px;">
+      ⚠️ 记录保存在该文件夹的 <code>.rename_history.json</code>。关掉浏览器后再打开本工具、选回同一文件夹，仍可撤销。回滚会把文件从「新名称」改回「原名称」。撤销上一次 = 回滚最近一次批量操作。全部回滚后会删除这份记录。
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="footer">🔒 所有操作均在本地浏览器完成，不会上传任何文件。重命名前请确认预览结果。快捷键：Ctrl+Enter 应用。</div>
+
+<script>
+// ============ 状态 ============
+let dirHandle = null;
+let files = [];
+let useFilePicker = false;
+let history = [];
+let presets = {};
+let workbook = null;
+let excelRowsRaw = [];
+let excelCols = [];
+let extFilter = '';
+let unmatchedExcel = [];
+let occCache = { key: '', fn: null };
+let refreshQueued = false;
+let lastExtKey = '';
+const OCC_MAP = {
+  s2t:['cn','tw'], t2s:['tw','cn'], s2tw:['cn','twp'],
+  s2hk:['cn','hk'], tw2s:['twp','cn'], hk2s:['hk','cn']
+};
+
+const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
+const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+const PRESET_KEY = 'file-renamer-presets-v2';
+const HISTORY_NAME = '.rename_history.json';
+
+try { presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}') || {}; } catch(e){ presets = {}; }
+
+// ============ 工具函数 ============
+function $(id){ return document.getElementById(id); }
+
+function toast(msg, type=''){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.className = 'toast', 2800);
+}
+
+function splitExt(name){
+  const idx = name.lastIndexOf('.');
+  if(idx <= 0) return { base: name, ext: '' };
+  return { base: name.slice(0, idx), ext: name.slice(idx+1) };
+}
+
+function pad(n, len){ return String(n).padStart(len, '0'); }
+
+function formatDate(fmt){
+  const d = new Date();
+  const map = {
+    'YYYY': d.getFullYear(),
+    'MM': pad(d.getMonth()+1, 2),
+    'DD': pad(d.getDate(), 2),
+    'HH': pad(d.getHours(), 2),
+    'mm': pad(d.getMinutes(), 2)
+  };
+  return fmt.replace(/YYYY|MM|DD|HH|mm/g, m => map[m]);
+}
+
+function randomName(type, len){
+  if(type === 'uuid'){
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0;
+      const v = c === 'x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  }
+  if(type === 'hex'){
+    let s = '';
+    for(let i=0;i<len;i++) s += Math.floor(Math.random()*16).toString(16);
+    return s;
+  }
+  const words = ['photo','image','file','doc','data','pic','shot','note','memo','clip','view','snap'];
+  let s = '';
+  for(let i=0;i<Math.max(1,Math.ceil(len/5));i++) s += words[Math.floor(Math.random()*words.length)];
+  return s.slice(0, len);
+}
+
+function cellStr(v){
+  if(v == null || v === '') return '';
+  if(v instanceof Date && !isNaN(v)){
+    const p = n => String(n).padStart(2,'0');
+    return `${v.getFullYear()}-${p(v.getMonth()+1)}-${p(v.getDate())}`;
+  }
+  if(typeof v === 'number'){
+    if(!isFinite(v)) return '';
+    if(Number.isInteger(v)) return String(v);
+    const s = String(v);
+    return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, '') : s;
+  }
+  return String(v).trim();
+}
+
+function sanitizeBase(name){
+  return String(name).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '').trim();
+}
+
+function getOccConverter(modeVal){
+  const cfg = OCC_MAP[modeVal];
+  if(!window.OpenCC || !cfg) return null;
+  const key = cfg[0] + '>' + cfg[1];
+  if(occCache.key === key && occCache.fn) return occCache.fn;
+  occCache.fn = OpenCC.Converter({ from: cfg[0], to: cfg[1] });
+  occCache.key = key;
+  return occCache.fn;
+}
+
+function scheduleRefresh(){
+  if(refreshQueued) return;
+  refreshQueued = true;
+  requestAnimationFrame(() => {
+    refreshQueued = false;
+    refresh();
+  });
+}
+
+function validateName(name){
+  if(!name) return '名称为空';
+  if(name === '.' || name === '..') return '非法名称';
+  if(/[<>:"/\\|?*\u0000-\u001f]/.test(name)) return '含非法字符';
+  if(RESERVED.test(name)) return '系统保留名';
+  if(name.length > 240) return '名称过长';
+  return '';
+}
+
+function keysEqual(a, b){
+  a = cellStr(a); b = cellStr(b);
+  if($('ignoreCase').checked){ a = a.toLowerCase(); b = b.toLowerCase(); }
+  if(a === b) return true;
+  if($('ignoreZeros').checked && /^\d+$/.test(a) && /^\d+$/.test(b)){
+    return Number(a) === Number(b);
+  }
+  return false;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function guessCol(cols, keywords, fallback){
+  const lower = cols.map(c => String(c).toLowerCase());
+  for(const kw of keywords){
+    const i = lower.findIndex(c => c.includes(kw));
+    if(i >= 0) return cols[i];
+  }
+  return fallback;
+}
+
+// ============ 文件夹选择 ============
+$('btnSelect').addEventListener('click', async () => {
+  if(!window.showDirectoryPicker){
+    toast('当前浏览器不支持文件夹访问，请使用 Chrome / Edge', 'error');
+    return;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    useFilePicker = false;
+    await loadFromDirectory();
+    if(history.length) toast('发现该文件夹的重命名记录，可在底部回滚', 'success');
+  } catch(e){
+    if(e.name === 'AbortError') return;
+    toast('无法访问文件夹：' + e.message, 'error');
+  }
+});
+
+async function loadFromDirectory(opts = {}){
+  files = [];
+  for await (const entry of dirHandle.values()){
+    if(entry.kind === 'file'){
+      if(entry.name.startsWith('.__renaming_')) continue;
+      if(entry.name === HISTORY_NAME) continue;
+      let size = 0, mtime = 0;
+      try { const f = await entry.getFile(); size = f.size; mtime = f.lastModified; } catch(e){}
+      files.push({ handle: entry, name: entry.name, ext: splitExt(entry.name).ext, size, mtime, selected: true, override: null });
+    }
+  }
+  files.sort((a,b)=> a.name.localeCompare(b.name, 'zh'));
+  $('folderName').textContent = dirHandle.name;
+  $('fileCount').textContent = files.length + ' 个文件';
+  if(excelRowsRaw.length) applyExcelSelection();
+  if(opts.reloadHistory === false) renderHistory();
+  else await loadHistoryFromFolder();
+  refresh();
+}
+
+$('btnSelectFiles').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.onchange = () => {
+    useFilePicker = true;
+    dirHandle = null;
+    files = Array.from(input.files).map(f => ({
+      handle: null, name: f.name, ext: splitExt(f.name).ext, size: f.size, mtime: f.lastModified, selected: true, override: null
+    }));
+    $('folderName').textContent = '（多文件选择模式，仅预览）';
+    $('fileCount').textContent = files.length + ' 个文件';
+    if(excelRowsRaw.length) applyExcelSelection();
+    refresh();
+  };
+  input.click();
+});
+
+['dragover','dragenter'].forEach(ev => {
+  $('folderDrop').addEventListener(ev, e => { e.preventDefault(); $('folderDrop').classList.add('dragover'); });
+});
+$('folderDrop').addEventListener('dragleave', () => $('folderDrop').classList.remove('dragover'));
+$('folderDrop').addEventListener('drop', async e => {
+  e.preventDefault();
+  $('folderDrop').classList.remove('dragover');
+  const item = [...e.dataTransfer.items].find(i => i.kind === 'file');
+  if(!item || !item.getAsFileSystemHandle){ toast('请用「选择文件夹」按钮', 'error'); return; }
+  try {
+    const handle = await item.getAsFileSystemHandle();
+    if(handle.kind !== 'directory'){ toast('请拖入文件夹，而不是单个文件', 'error'); return; }
+    dirHandle = handle;
+    useFilePicker = false;
+    await loadFromDirectory();
+    if(history.length) toast('发现该文件夹的重命名记录，可在底部回滚', 'success');
+  } catch(err){
+    toast('无法读取拖入的文件夹', 'error');
+  }
+});
+
+// ============ 规则 UI ============
+document.querySelectorAll('.rule input, .rule select').forEach(el => {
+  const onRuleChange = () => {
+    if(el.matches('input[data-rule]')){
+      el.closest('.rule').classList.toggle('active', el.checked);
+    }
+    if(el.id === 'extMode'){
+      $('extCustom').style.display = el.value === 'custom' ? 'block' : 'none';
+    }
+    if(el.id === 'insertPos'){
+      $('insertIndex').style.display = el.value === 'index' ? 'inline-block' : 'none';
+    }
+    if(el.dataset.rule === 'convert' && el.checked){
+      requestAnimationFrame(() => {
+        getOccConverter($('caseConvert').value);
+        refresh();
+      });
+      return;
+    }
+    if(el.id === 'caseConvert'){
+      requestAnimationFrame(() => {
+        if($('rule-convert').querySelector('input[data-rule]').checked){
+          getOccConverter(el.value);
+        }
+        refresh();
+      });
+      return;
+    }
+    scheduleRefresh();
+  };
+  if(el.type === 'checkbox' || el.matches('select')) el.addEventListener('change', onRuleChange);
+  else el.addEventListener('input', onRuleChange);
+});
+$('sortMode').addEventListener('change', scheduleRefresh);
+
+// ============ 预设 ============
+function collectRules(){
+  const state = {};
+  document.querySelectorAll('.rule input[type="checkbox"][data-rule]').forEach(cb => {
+    state['rule_'+cb.dataset.rule] = cb.checked;
+  });
+  ['prefixVal','suffixVal','replaceFind','replaceWith','removeChars','insertText','insertIndex',
+   'numStart','numPad','numPos','numSep','dateFormat','datePos','dateSep','caseMode','caseConvert','spaceMode',
+   'randomType','randomLen','extMode','extCustom'].forEach(id => state[id] = $(id).value);
+  state.replaceRegex = $('replaceRegex').checked;
+  state.removeRegex = $('removeRegex').checked;
+  return state;
+}
+function applyRules(state){
+  document.querySelectorAll('.rule input[type="checkbox"][data-rule]').forEach(cb => {
+    cb.checked = !!state['rule_'+cb.dataset.rule];
+    cb.closest('.rule').classList.toggle('active', cb.checked);
+  });
+  ['prefixVal','suffixVal','replaceFind','replaceWith','removeChars','insertText','insertIndex',
+   'numStart','numPad','numPos','numSep','dateFormat','datePos','dateSep','caseMode','caseConvert','spaceMode',
+   'randomType','randomLen','extMode','extCustom'].forEach(id => { if(state[id]!==undefined) $(id).value = state[id]; });
+  $('replaceRegex').checked = !!state.replaceRegex;
+  $('removeRegex').checked = !!state.removeRegex;
+  $('extCustom').style.display = $('extMode').value === 'custom' ? 'block' : 'none';
+  $('insertIndex').style.display = $('insertPos').value === 'index' ? 'inline-block' : 'none';
+  refresh();
+}
+function refreshPresetList(){
+  const sel = $('presetSelect');
+  sel.innerHTML = '<option value="">选择预设...</option>';
+  Object.keys(presets).forEach(k => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = k;
+    sel.appendChild(o);
+  });
+}
+function savePresets(){
+  try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets)); } catch(e){}
+}
+refreshPresetList();
+
+$('btnSavePreset').addEventListener('click', () => {
+  const name = $('presetName').value.trim();
+  if(!name){ toast('请输入预设名称', 'error'); return; }
+  presets[name] = collectRules();
+  savePresets();
+  refreshPresetList();
+  $('presetSelect').value = name;
+  toast('预设「' + name + '」已保存', 'success');
+});
+$('btnLoadPreset').addEventListener('click', () => {
+  const name = $('presetSelect').value;
+  if(!name || !presets[name]){ toast('请选择要应用的预设', 'error'); return; }
+  applyRules(presets[name]);
+  toast('已应用预设「' + name + '」', 'success');
+});
+$('btnDelPreset').addEventListener('click', () => {
+  const name = $('presetSelect').value;
+  if(!name){ toast('请选择要删除的预设', 'error'); return; }
+  delete presets[name];
+  savePresets();
+  refreshPresetList();
+  toast('已删除预设', 'success');
+});
+
+$('btnReset').addEventListener('click', () => {
+  document.querySelectorAll('.rule input[type="checkbox"][data-rule]').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.rule').classList.remove('active');
+  });
+  $('prefixVal').value=''; $('suffixVal').value='';
+  $('replaceFind').value=''; $('replaceWith').value=''; $('replaceRegex').checked=false;
+  $('removeChars').value=''; $('removeRegex').checked=false;
+  $('insertText').value=''; $('insertPos').value='start'; $('insertIndex').value=3;
+  $('numStart').value=1; $('numPad').value=2; $('numPos').value='before'; $('numSep').value='_';
+  $('dateFormat').value='YYYY-MM-DD'; $('datePos').value='before'; $('dateSep').value='_';
+  $('caseMode').value='lower'; $('caseConvert').value='s2t'; $('spaceMode').value='remove';
+  $('randomType').value='uuid'; $('randomLen').value=8;
+  $('extMode').value='keep'; $('extCustom').value='';
+  $('extCustom').style.display='none'; $('insertIndex').style.display='none';
+  files.forEach(f => f.override = null);
+  refresh();
+});
+
+// ============ Excel ============
+$('excelDrop').addEventListener('click', () => $('excelInput').click());
+['dragover','dragenter'].forEach(ev => {
+  $('excelDrop').addEventListener(ev, e => { e.preventDefault(); $('excelDrop').classList.add('dragover'); });
+});
+$('excelDrop').addEventListener('dragleave', () => $('excelDrop').classList.remove('dragover'));
+$('excelDrop').addEventListener('drop', e => {
+  e.preventDefault();
+  $('excelDrop').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if(f) loadExcelFile(f);
+});
+$('excelInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(f) loadExcelFile(f);
+  e.target.value = '';
+});
+
+async function loadExcelFile(file){
+  if(typeof XLSX === 'undefined'){ toast('Excel 解析库未加载，请检查网络', 'error'); return; }
+  try {
+    const buf = await file.arrayBuffer();
+    workbook = XLSX.read(buf, { type: 'array', cellDates: true });
+    $('excelFileName').textContent = file.name;
+    const sel = $('sheetSelect');
+    sel.innerHTML = '';
+    workbook.SheetNames.forEach(n => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+    $('excelReady').classList.remove('hidden');
+    loadSheet(workbook.SheetNames[0]);
+    toast('已读取表格「' + file.name + '」', 'success');
+  } catch(err){
+    toast('无法读取表格：' + err.message, 'error');
+  }
+}
+
+$('sheetSelect').addEventListener('change', () => loadSheet($('sheetSelect').value));
+
+function loadSheet(name){
+  const sheet = workbook.Sheets[name];
+  excelRowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+  excelCols = excelRowsRaw.length ? Object.keys(excelRowsRaw[0]) : [];
+  fillColSelects();
+  applyExcelSelection();
+  refresh();
+}
+
+function fillColSelects(){
+  const oldSel = $('oldCol'), newSel = $('newCol'), extraSel = $('extraCol');
+  const fill = (sel, withNone) => {
+    sel.innerHTML = withNone ? '<option value="">无</option>' : '';
+    excelCols.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+  };
+  fill(oldSel, false);
+  fill(newSel, false);
+  fill(extraSel, true);
+  if(excelCols.length){
+    oldSel.value = guessCol(excelCols, ['原文件','原名','旧名','old','filename','文件名','标题','序号','案名','编号'], excelCols[0]);
+    const rest = excelCols.filter(c => c !== oldSel.value);
+    newSel.value = guessCol(rest, ['新文件','新名','目标','new','案号','重命名','名称'], rest[0] || excelCols[0]);
+    extraSel.value = guessCol(excelCols, ['附加','备注','extra','说明','信息','说话人','speaker'], '') || '';
+    if(extraSel.value === oldSel.value || extraSel.value === newSel.value) extraSel.value = '';
+  }
+  $('excelStats').innerHTML = `<span class="chip">${excelRowsRaw.length} 行</span>` +
+    excelCols.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join('');
+}
+
+['oldCol','newCol','extraCol','matchMode','ignoreCase','ignoreZeros'].forEach(id => {
+  const fn = () => { applyExcelSelection(); scheduleRefresh(); };
+  $(id).addEventListener('change', fn);
+  if($(id).tagName === 'INPUT' && $(id).type !== 'checkbox') $(id).addEventListener('input', fn);
+});
+
+function getExcelPairs(){
+  const oldC = $('oldCol').value, newC = $('newCol').value, extraC = $('extraCol').value;
+  if(!oldC || !newC) return [];
+  return excelRowsRaw.map((row, i) => {
+    const oldVal = cellStr(row[oldC]);
+    const newVal = cellStr(row[newC]);
+    const extra = extraC ? cellStr(row[extraC]) : '';
+    return { i, oldVal, newVal, extra };
+  }).filter(r => r.oldVal !== '' && r.newVal !== '');
+}
+
+function matchFileToExcel(file, pairs){
+  const { base } = splitExt(file.name);
+  const m = $('matchMode').value;
+  for(const row of pairs){
+    const excelBase = splitExt(row.oldVal).base || row.oldVal;
+    if(m === 'full'){
+      if(keysEqual(file.name, row.oldVal)) return row;
+    } else if(m === 'exact'){
+      if(keysEqual(base, row.oldVal) || keysEqual(base, excelBase)) return row;
+    } else if(m === 'startswith'){
+      const fold = s => $('ignoreCase').checked ? String(s).toLowerCase() : String(s);
+      if(fold(file.name).startsWith(fold(row.oldVal)) || fold(base).startsWith(fold(excelBase))) return row;
+    } else if(m === 'contains'){
+      const fold = s => $('ignoreCase').checked ? String(s).toLowerCase() : String(s);
+      const key = fold(row.oldVal);
+      if(key && (fold(file.name).includes(key) || fold(base).includes(fold(excelBase)))) return row;
+    }
+  }
+  return null;
+}
+
+function applyExcelSelection(){
+  const pairs = getExcelPairs();
+  const used = new Set();
+  files.forEach(f => {
+    const row = matchFileToExcel(f, pairs);
+    f.excelRow = row;
+    if(row) used.add(row.i);
+  });
+  unmatchedExcel = pairs.filter(p => !used.has(p.i));
+  const box = $('unmatchedBox');
+  if(unmatchedExcel.length){
+    box.classList.remove('hidden');
+    box.innerHTML = `表格中有 <b>${unmatchedExcel.length}</b> 行没在文件夹里找到对应文件：<ul>` +
+      unmatchedExcel.slice(0, 40).map(p => `<li>${escapeHtml(p.oldVal)} → ${escapeHtml(p.newVal)}</li>`).join('') +
+      (unmatchedExcel.length > 40 ? `<li>… 还有 ${unmatchedExcel.length-40} 行</li>` : '') +
+      '</ul>';
+  } else {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  }
+}
+
+$('btnUsePaste').addEventListener('click', () => {
+  const text = $('pasteMap').value.trim();
+  if(!text){ toast('请先粘贴对照表', 'error'); return; }
+  const rows = [];
+  text.split(/\r?\n/).forEach(line => {
+    const parts = line.split(/\t|,|，/).map(s => s.trim()).filter(Boolean);
+    if(parts.length >= 2) rows.push({ '原名': parts[0], '新名': parts.slice(1).join('_') });
+  });
+  if(!rows.length){ toast('没有解析到「原名 + 新名」行', 'error'); return; }
+  workbook = null;
+  excelRowsRaw = rows;
+  excelCols = ['原名','新名'];
+  $('excelFileName').textContent = '（粘贴的对照表）';
+  $('sheetSelect').innerHTML = '<option>粘贴</option>';
+  $('excelReady').classList.remove('hidden');
+  fillColSelects();
+  $('oldCol').value = '原名';
+  $('newCol').value = '新名';
+  applyExcelSelection();
+  refresh();
+  toast('已载入 ' + rows.length + ' 行对照', 'success');
+});
+
+// ============ 重命名计算 ============
+function ruleOn(id){
+  return !!$(id).querySelector('input[data-rule]')?.checked;
+}
+
+function snapshotRules(){
+  const convertOn = ruleOn('rule-convert');
+  const dateOn = ruleOn('rule-date');
+  let converter = null, convertErr = '';
+  if(convertOn){
+    if(!window.OpenCC) convertErr = '简繁转换库未加载';
+    else {
+      converter = getOccConverter($('caseConvert').value);
+      if(!converter) convertErr = '转换错误';
+    }
+  }
+  let replaceRe = null, replaceErr = '';
+  if(ruleOn('rule-replace') && $('replaceRegex').checked && $('replaceFind').value !== ''){
+    try { replaceRe = new RegExp($('replaceFind').value, 'g'); }
+    catch(e){ replaceErr = '正则错误'; }
+  }
+  let removeRe = null, removeErr = '';
+  if(ruleOn('rule-remove') && $('removeRegex').checked && $('removeChars').value !== ''){
+    try { removeRe = new RegExp($('removeChars').value, 'g'); }
+    catch(e){ removeErr = '正则错误'; }
+  }
+  return {
+    replace: ruleOn('rule-replace'), replaceFind: $('replaceFind').value, replaceWith: $('replaceWith').value, replaceRe, replaceErr,
+    remove: ruleOn('rule-remove'), removeChars: $('removeChars').value, removeRe, removeErr,
+    caseOn: ruleOn('rule-case'), caseMode: $('caseMode').value,
+    convert: convertOn, converter, convertErr,
+    space: ruleOn('rule-space'), spaceMode: $('spaceMode').value,
+    prefix: ruleOn('rule-prefix'), prefixVal: $('prefixVal').value,
+    suffix: ruleOn('rule-suffix'), suffixVal: $('suffixVal').value,
+    insert: ruleOn('rule-insert'), insertText: $('insertText').value, insertPos: $('insertPos').value, insertIndex: parseInt($('insertIndex').value)||0,
+    number: ruleOn('rule-number'), numStart: parseInt($('numStart').value)||0, numPad: parseInt($('numPad').value)||1, numPos: $('numPos').value, numSep: $('numSep').value,
+    date: dateOn, dateStr: dateOn ? formatDate($('dateFormat').value) : '', datePos: $('datePos').value, dateSep: $('dateSep').value,
+    random: ruleOn('rule-random'), randomType: $('randomType').value, randomLen: parseInt($('randomLen').value)||8,
+    extOn: ruleOn('rule-ext'), extMode: $('extMode').value, extCustom: $('extCustom').value.replace(/^\./, '')
+  };
+}
+
+function computeRuleNewName(sourceName, index, rules){
+  let { base, ext } = splitExt(sourceName);
+  let err = rules.replaceErr || rules.removeErr || rules.convertErr || '';
+
+  if(rules.replace && rules.replaceFind !== ''){
+    try {
+      if(rules.replaceRe){ rules.replaceRe.lastIndex = 0; base = base.replace(rules.replaceRe, rules.replaceWith); }
+      else base = base.split(rules.replaceFind).join(rules.replaceWith);
+    } catch(e){ err = '正则错误'; }
+  }
+
+  if(rules.remove && rules.removeChars !== ''){
+    try {
+      if(rules.removeRe){ rules.removeRe.lastIndex = 0; base = base.replace(rules.removeRe, ''); }
+      else {
+        const chars = rules.removeChars;
+        base = base.split('').filter(c => !chars.includes(c)).join('');
+      }
+    } catch(e){ err = '正则错误'; }
+  }
+
+  if(rules.caseOn){
+    if(rules.caseMode === 'lower') base = base.toLowerCase();
+    else if(rules.caseMode === 'upper') base = base.toUpperCase();
+    else if(rules.caseMode === 'title') base = base.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  if(rules.convert && rules.converter){
+    try { base = rules.converter(base); }
+    catch(e){ err = '转换错误'; }
+  }
+
+  if(rules.space){
+    if(rules.spaceMode === 'remove') base = base.replace(/\s+/g, '');
+    else if(rules.spaceMode === 'underscore') base = base.replace(/\s+/g, '_');
+    else if(rules.spaceMode === 'collapse') base = base.replace(/\s+/g, ' ').trim();
+  }
+
+  if(rules.prefix) base = rules.prefixVal + base;
+  if(rules.suffix) base = base + rules.suffixVal;
+
+  if(rules.insert){
+    const text = rules.insertText;
+    if(rules.insertPos === 'start') base = text + base;
+    else if(rules.insertPos === 'end') base = base + text;
+    else {
+      const idx = Math.max(0, Math.min(base.length, rules.insertIndex));
+      base = base.slice(0, idx) + text + base.slice(idx);
+    }
+  }
+
+  if(rules.number){
+    const num = pad(rules.numStart + index, rules.numPad);
+    base = rules.numPos === 'before' ? num + rules.numSep + base : base + rules.numSep + num;
+  }
+
+  if(rules.date){
+    base = rules.datePos === 'before' ? rules.dateStr + rules.dateSep + base : base + rules.dateSep + rules.dateStr;
+  }
+
+  if(rules.random){
+    base = randomName(rules.randomType, rules.randomLen);
+  }
+
+  let newExt = ext;
+  if(rules.extOn){
+    if(rules.extMode === 'lower') newExt = ext.toLowerCase();
+    else if(rules.extMode === 'upper') newExt = ext.toUpperCase();
+    else if(rules.extMode === 'remove') newExt = '';
+    else if(rules.extMode === 'custom') newExt = rules.extCustom;
+  }
+
+  base = sanitizeBase(base);
+  let newName = newExt ? base + '.' + newExt : base;
+  if(newName === '') newName = '_';
+  return { newName, err: err || validateName(newName) };
+}
+
+function computeExcelNewName(file){
+  const row = file.excelRow;
+  if(!row){
+    return { newName: file.name, err: '' };
+  }
+  let base = sanitizeBase(row.newVal);
+  if(row.extra) base += '_' + sanitizeBase(row.extra);
+  const ext = splitExt(file.name).ext;
+  const newName = ext ? base + '.' + ext : base;
+  return { newName, err: validateName(newName) };
+}
+
+function computeNewName(file, index, rules){
+  if(file.override != null){
+    return { newName: file.override, err: validateName(file.override) };
+  }
+  const source = file.excelRow ? computeExcelNewName(file).newName : file.name;
+  return computeRuleNewName(source, index, rules);
+}
+
+// ============ 刷新预览 ============
+function uniqueExts(){
+  const set = new Set(files.map(f => (f.ext || '').toLowerCase()).filter(Boolean));
+  return [...set].sort();
+}
+
+function renderExtFilters(){
+  const box = $('extFilters');
+  const exts = uniqueExts();
+  const key = exts.join('|') + '#' + extFilter;
+  if(key === lastExtKey) return;
+  lastExtKey = key;
+  if(!exts.length){ box.innerHTML = ''; return; }
+  box.innerHTML = exts.map(e =>
+    `<button type="button" data-ext="${escapeHtml(e)}" class="${extFilter===e?'on':''}">.${escapeHtml(e)}</button>`
+  ).join('');
+  box.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      extFilter = extFilter === btn.dataset.ext ? '' : btn.dataset.ext;
+      lastExtKey = '';
+      scheduleRefresh();
+    });
+  });
+}
+
+function refresh(){
+  const search = $('searchBox').value.toLowerCase();
+  const tbody = $('tbody');
+  if(files.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">请先选择文件夹</td></tr>';
+    $('btnApply').disabled = true;
+    updateSummary();
+    renderExtFilters();
+    return;
+  }
+
+  const sortMode = $('sortMode').value;
+  let order = files.map((f,i)=>i);
+  if(sortMode === 'size') order.sort((a,b)=> files[a].size - files[b].size);
+  else if(sortMode === 'date') order.sort((a,b)=> files[a].mtime - files[b].mtime);
+  else order.sort((a,b)=> files[a].name.localeCompare(files[b].name, 'zh'));
+  const rank = new Map();
+  order.forEach((idx, r) => rank.set(idx, r));
+
+  const rules = snapshotRules();
+  const newNames = new Map();
+  files.forEach((f, i) => {
+    const r = computeNewName(f, rank.get(i), rules);
+    f.newName = r.newName;
+    f.err = r.err;
+    f.conflict = false;
+  });
+
+  const existing = new Set(files.map(f => f.name));
+  const leaving = new Set(files.filter(f => f.selected && f.newName !== f.name).map(f => f.name));
+
+  files.forEach(f => {
+    if(f.err || !f.selected) return;
+    const n = f.newName;
+    if(newNames.has(n)){
+      f.conflict = true;
+      const other = newNames.get(n);
+      if(other) other.conflict = true;
+    } else {
+      newNames.set(n, f);
+    }
+    if(n !== f.name && existing.has(n) && !leaving.has(n)){
+      f.conflict = true;
+    }
+  });
+
+  renderExtFilters();
+  let html = '';
+  files.forEach((f, i) => {
+    if(search && !f.name.toLowerCase().includes(search) && !(f.newName||'').toLowerCase().includes(search)) return;
+    if(extFilter && (f.ext||'').toLowerCase() !== extFilter) return;
+    let cls = 'new';
+    if(f.err) cls = 'err';
+    else if(f.conflict) cls = 'warn';
+    const tip = f.err || (f.conflict ? '目标文件名冲突' : '');
+    html += `<tr>
+      <td><input type="checkbox" data-idx="${i}" ${f.selected?'checked':''}></td>
+      <td class="old">${escapeHtml(f.name)}</td>
+      <td class="arrow">→</td>
+      <td class="${cls}" data-idx="${i}" title="${escapeHtml(tip)}">${escapeHtml(f.newName)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html || '<tr><td colspan="4" class="empty">无匹配文件</td></tr>';
+
+  tbody.querySelectorAll('input[data-idx]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      files[parseInt(cb.dataset.idx)].selected = cb.checked;
+      updateSummary();
+    });
+  });
+  tbody.querySelectorAll('td.new').forEach(td => {
+    td.addEventListener('dblclick', () => startEdit(td));
+  });
+
+  updateSummary();
+}
+
+function startEdit(td){
+  const i = parseInt(td.dataset.idx);
+  const f = files[i];
+  td.classList.add('edit');
+  td.innerHTML = `<input value="${escapeHtml(f.newName)}">`;
+  const inp = td.querySelector('input');
+  inp.focus();
+  inp.select();
+  const commit = () => {
+    f.override = inp.value.trim();
+    refresh();
+  };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); }
+    if(e.key === 'Escape'){ f.override = f.override; refresh(); }
+  });
+}
+
+function updateSummary(){
+  const sel = files.filter(f => f.selected).length;
+  const change = files.filter(f => f.selected && f.newName !== f.name && !f.err && !f.conflict).length;
+  const warn = files.filter(f => f.selected && f.conflict && !f.err).length;
+  const err = files.filter(f => f.selected && f.err).length;
+  const unmatched = unmatchedExcel.length;
+  const unselected = files.filter(f => !f.selected).length;
+  $('sumSelected').textContent = '已选 ' + sel + ' 项';
+  $('sumChange').textContent = '将改名 ' + change;
+  $('sumWarn').textContent = '冲突 ' + warn;
+  $('sumErr').textContent = '错误 ' + err;
+  $('sumSkip').textContent = unmatched ? ('表未匹配 ' + unmatched) : ('未选 ' + unselected);
+  $('btnApply').disabled = !(change > 0 && warn === 0 && err === 0);
+}
+
+$('checkAll').addEventListener('change', e => {
+  files.forEach(f => f.selected = e.target.checked);
+  refresh();
+});
+$('btnSelectAll').addEventListener('click', () => { files.forEach(f=>f.selected=true); refresh(); });
+$('btnSelectNone').addEventListener('click', () => { files.forEach(f=>f.selected=false); refresh(); });
+$('btnSelectMatched').addEventListener('click', () => {
+  files.forEach(f => f.selected = f.newName && f.newName !== f.name);
+  refresh();
+});
+$('searchBox').addEventListener('input', scheduleRefresh);
+
+$('btnCopy').addEventListener('click', copyNames);
+function copyNames(){
+  if(files.length === 0){ toast('没有文件', 'error'); return; }
+  const lines = files.filter(f=>f.selected).map(f => f.name + '\t' + f.newName);
+  navigator.clipboard.writeText(lines.join('\n')).then(
+    () => toast('已复制 ' + lines.length + ' 行到剪贴板', 'success'),
+    () => toast('复制失败', 'error')
+  );
+}
+
+// ============ 回滚记录写入文件夹 ============
+function baseName(p){
+  if(!p) return '';
+  const s = String(p).replace(/\\/g, '/');
+  const i = s.lastIndexOf('/');
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+function parseHistoryFile(data){
+  if(!data) return [];
+  const toBatch = (b) => ({
+    time: b.time ? new Date(b.time) : (data.timestamp ? new Date(data.timestamp) : new Date()),
+    items: (b.items || []).map(it => ({ old: baseName(it.old), new: baseName(it.new) })).filter(it => it.old && it.new)
+  });
+  if(Array.isArray(data.batches)){
+    return data.batches.map(toBatch).filter(b => b.items.length);
+  }
+  if(Array.isArray(data.changes) && data.changes.length){
+    return [{
+      time: data.timestamp ? new Date(data.timestamp) : new Date(),
+      items: data.changes.map(it => ({ old: baseName(it.old), new: baseName(it.new) })).filter(it => it.old && it.new)
+    }].filter(b => b.items.length);
+  }
+  return [];
+}
+
+async function loadHistoryFromFolder(){
+  if(!dirHandle){
+    history = [];
+    renderHistory();
+    return;
+  }
+  try {
+    const fh = await dirHandle.getFileHandle(HISTORY_NAME);
+    const text = await (await fh.getFile()).text();
+    history = parseHistoryFile(JSON.parse(text));
+  } catch(e){
+    history = [];
+  }
+  renderHistory();
+}
+
+async function saveHistoryToFolder(){
+  if(!dirHandle) return false;
+  try {
+    if(history.length === 0){
+      try { await dirHandle.removeEntry(HISTORY_NAME); } catch(e){}
+      return true;
+    }
+    const payload = {
+      version: 2,
+      timestamp: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      batches: history.map(b => ({
+        time: (b.time instanceof Date ? b.time : new Date(b.time)).toISOString(),
+        items: b.items
+      })),
+      changes: history.flatMap(b => b.items)
+    };
+    const fh = await dirHandle.getFileHandle(HISTORY_NAME, { create: true });
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(payload, null, 2));
+    await w.close();
+    return true;
+  } catch(e){
+    console.error(e);
+    toast('无法写入回滚记录：' + e.message, 'error');
+    return false;
+  }
+}
+
+// ============ 真正改名（优先 move，避免整文件复制） ============
+async function renameEntry(handle, newName){
+  if(handle && typeof handle.move === 'function'){
+    await handle.move(newName);
+    return;
+  }
+  if(!dirHandle) throw new Error('无文件夹权限');
+  const newHandle = await dirHandle.getFileHandle(newName, { create: true });
+  const writable = await newHandle.createWritable();
+  const file = await handle.getFile();
+  await writable.write(file);
+  await writable.close();
+  await dirHandle.removeEntry(handle.name);
+}
+
+$('btnApply').addEventListener('click', applyRename);
+document.addEventListener('keydown', e => {
+  if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+    if(!$('btnApply').disabled) applyRename();
+  }
+});
+
+async function applyRename(){
+  if(useFilePicker){ toast('多文件选择模式无法写回磁盘，请使用「选择文件夹」', 'error'); return; }
+  if(!dirHandle){ toast('请先选择文件夹', 'error'); return; }
+  const targets = files.filter(f => f.selected && !f.err && !f.conflict && f.newName !== f.name);
+  if(targets.length === 0) return;
+  if(!confirm(`即将重命名 ${targets.length} 个文件，确定吗？`)) return;
+
+  $('btnApply').disabled = true;
+  let ok = 0, fail = 0;
+  const batchItems = [];
+  const stamp = Date.now();
+  const temps = [];
+
+  try {
+    for(let i = 0; i < targets.length; i++){
+      const f = targets[i];
+      const tmp = `.__renaming_${stamp}_${i}__${f.newName}`;
+      try {
+        await renameEntry(f.handle, tmp);
+        temps.push({ tmp, final: f.newName, old: f.name });
+      } catch(e){
+        fail++;
+        console.error(e);
+      }
+    }
+    for(const it of temps){
+      try {
+        const handle = await dirHandle.getFileHandle(it.tmp);
+        await renameEntry(handle, it.final);
+        batchItems.push({ old: it.old, new: it.final });
+        ok++;
+      } catch(e){
+        fail++;
+        console.error(e);
+        try {
+          const handle = await dirHandle.getFileHandle(it.tmp);
+          await renameEntry(handle, it.old);
+        } catch(e2){ console.error(e2); }
+      }
+    }
+  } catch(e){
+    toast('重命名中断：' + e.message, 'error');
+  }
+
+  if(batchItems.length > 0){
+    history.push({ time: new Date(), items: batchItems });
+    const saved = await saveHistoryToFolder();
+    await loadFromDirectory({ reloadHistory: saved });
+  } else {
+    await loadFromDirectory();
+  }
+  toast(`重命名完成：成功 ${ok} 个${fail ? '，失败 ' + fail + ' 个' : ''}`, fail ? 'error' : 'success');
+}
+
+// ============ 回滚 ============
+function renderHistory(){
+  const body = $('historyBody');
+  if(history.length === 0){
+    body.innerHTML = '<tr><td colspan="3" class="empty">暂无操作记录</td></tr>';
+    $('btnUndo').disabled = true;
+    $('btnRollbackAll').disabled = true;
+    return;
+  }
+  $('btnUndo').disabled = false;
+  $('btnRollbackAll').disabled = false;
+  let html = '';
+  for(let i = history.length-1; i>=0; i--){
+    const batch = history[i];
+    const d = batch.time instanceof Date ? batch.time : new Date(batch.time);
+    const t = isNaN(d) ? '' : d.toLocaleString();
+    batch.items.forEach(it => {
+      html += `<tr><td class="old">${escapeHtml(it.new)}</td><td class="arrow">→</td><td class="new">${escapeHtml(it.old)}</td></tr>`;
+    });
+    html += `<tr><td colspan="3" style="color:#9ca3af;font-size:11px;text-align:right;border-bottom:2px solid #e5e7eb;">批次 ${t} · ${batch.items.length} 个文件</td></tr>`;
+  }
+  body.innerHTML = html;
+}
+
+async function rollbackBatch(batch){
+  let ok = 0, fail = 0;
+  const stamp = Date.now();
+  const temps = [];
+  for(let i = 0; i < batch.items.length; i++){
+    const it = batch.items[i];
+    try {
+      const handle = await dirHandle.getFileHandle(it.new);
+      const tmp = `.__renaming_${stamp}_rb_${i}__${it.old}`;
+      await renameEntry(handle, tmp);
+      temps.push({ tmp, final: it.old });
+    } catch(e){ fail++; console.error(e); }
+  }
+  for(const it of temps){
+    try {
+      const handle = await dirHandle.getFileHandle(it.tmp);
+      await renameEntry(handle, it.final);
+      ok++;
+    } catch(e){ fail++; console.error(e); }
+  }
+  return { ok, fail };
+}
+
+$('btnUndo').addEventListener('click', async () => {
+  if(useFilePicker || !dirHandle){ toast('回滚需要文件夹访问权限', 'error'); return; }
+  if(history.length === 0) return;
+  const batch = history[history.length-1];
+  $('btnUndo').disabled = true;
+  const r = await rollbackBatch(batch);
+  history.pop();
+  const saved = await saveHistoryToFolder();
+  toast(`已撤销最近一次操作：成功 ${r.ok} 个${r.fail ? '，失败 ' + r.fail + ' 个' : ''}`, r.fail ? 'error' : 'success');
+  await loadFromDirectory({ reloadHistory: saved });
+});
+
+$('btnRollbackAll').addEventListener('click', async () => {
+  if(useFilePicker || !dirHandle){ toast('回滚需要文件夹访问权限', 'error'); return; }
+  if(history.length === 0) return;
+  if(!confirm('确定要回滚全部 ' + history.reduce((s,b)=>s+b.items.length,0) + ' 个文件吗？')) return;
+  $('btnRollbackAll').disabled = true;
+  let ok = 0, fail = 0;
+  for(let i = history.length-1; i>=0; i--){
+    const r = await rollbackBatch(history[i]);
+    ok += r.ok; fail += r.fail;
+  }
+  history = [];
+  const saved = await saveHistoryToFolder();
+  toast(`已全部回滚：成功 ${ok} 个${fail ? '，失败 ' + fail + ' 个' : ''}`, fail ? 'error' : 'success');
+  await loadFromDirectory({ reloadHistory: saved });
+});
+</script>
+</body>
+</html>
