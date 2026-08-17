@@ -17,34 +17,40 @@
   header {
     background: linear-gradient(135deg, #2563eb, #7c3aed);
     color: #fff;
-    padding: 24px 32px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    padding: 12px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
   }
-  header h1 { font-size: 22px; margin-bottom: 4px; }
-  header p { font-size: 13px; opacity: .85; }
-  .container { max-width: 1140px; margin: 24px auto; padding: 0 20px; display:flex; flex-direction:column; }
+  header h1 { font-size: 18px; margin-bottom: 2px; }
+  header p { font-size: 12px; opacity: .85; }
+  .container { max-width: 1180px; margin: 12px auto; padding: 0 14px; display:flex; flex-direction:column; }
   #folderCard { order: 1; }
-  #excelCard { order: 2; }
-  #rulesCard { order: 3; }
-  #previewCard { order: 4; }
-  #rollbackCard { order: 5; }
+  #inventoryCard { order: 2; }
+  #excelCard { order: 3; }
+  #rulesCard { order: 4; }
+  #previewCard { order: 5; }
+  #rollbackCard { order: 6; }
   .card {
     background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  .card h2 { font-size: 16px; margin-bottom: 16px; color: #374151; display:flex; align-items:center; gap:8px;}
-  .card h2 .step { background:#2563eb; color:#fff; width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px; flex-shrink:0;}
-  .btn {
-    padding: 10px 18px;
-    border: none;
     border-radius: 8px;
-    font-size: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.07);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .card h2 { font-size: 14px; margin-bottom: 8px; color: #374151; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .card h2 .step { background:#2563eb; color:#fff; width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px; flex-shrink:0;}
+  .card h2 .sub { font-size:12px; font-weight:400; color:#9ca3af; }
+  .card-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .card-head h2 { margin-bottom:0; }
+  .card-head .folder-info { flex:1; min-width:260px; }
+  .btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
     cursor: pointer;
     transition: all .15s;
     font-weight: 500;
+    line-height: 1.3;
   }
   .btn-primary { background: #2563eb; color: #fff; }
   .btn-primary:hover { background: #1d4ed8; }
@@ -58,134 +64,195 @@
   .btn-success:hover { background: #15803d; }
   .btn-success:disabled { background: #86efac; cursor: not-allowed; }
   .folder-info {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 8px;
   }
   .folder-info.dragover { border-color: #2563eb; background: #eff6ff; }
-  .folder-info .name { font-weight: 600; color: #2563eb; word-break: break-all; }
-  .folder-info .count { color: #6b7280; font-size: 13px; }
-  .browser-note { font-size: 12px; color: #9ca3af; margin-top: 8px; }
+  .folder-info .name { font-weight: 600; color: #2563eb; word-break: break-all; font-size:13px; }
+  .folder-info .count { color: #6b7280; font-size: 12px; }
+  .browser-note { font-size: 11px; color: #9ca3af; margin-top: 6px; }
 
-  .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 720px){ .rules-grid{grid-template-columns:1fr;} }
-  .rule { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
-  .rule label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 10px; cursor: pointer;}
-  .rule input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
+  .rules-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  @media (max-width: 980px){ .rules-grid{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width: 720px){ .rules-grid{grid-template-columns:1fr 1fr;} }
+  .rule { border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 8px; }
+  .rule label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; margin-bottom: 0; cursor: pointer;}
+  .rule.active label { margin-bottom: 6px; }
+  .rule input[type="checkbox"] { width: 14px; height: 14px; accent-color: #2563eb; }
   .rule .controls { display: none; }
-  .rule.active .controls { display: flex; flex-direction: column; gap: 8px; }
+  .rule.active .controls { display: flex; flex-direction: column; gap: 6px; }
   .rule input[type="text"], .rule input[type="number"], .rule select,
   .field input[type="text"], .field input[type="number"], .field select, .excel-map select {
-    width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
+    width: 100%; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px;
   }
   .rule input:focus, .rule select:focus, .field input:focus, .field select:focus, .excel-map select:focus {
     outline: 2px solid #93c5fd; border-color: #2563eb;
   }
-  .inline { display: flex; gap: 8px; align-items: center; }
-  .inline label { font-weight: 400; margin: 0; font-size: 13px; color: #4b5563; white-space: nowrap;}
-  .inline input[type="number"] { width: 80px; }
+  .inline { display: flex; gap: 6px; align-items: center; }
+  .inline label { font-weight: 400; margin: 0; font-size: 12px; color: #4b5563; white-space: nowrap;}
+  .inline input[type="number"] { width: 64px; }
 
-  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-  .search-box { flex:1; min-width: 160px; padding: 8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;}
+  .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .toolbar-opts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .toolbar-opts label { font-size:12px; color:#4b5563; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .toolbar-opts select { width:auto; padding:4px 6px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; }
+  .search-box { flex:1; min-width: 140px; padding: 5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;}
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 4px 8px; text-align: left; border-bottom: 1px solid #f1f5f9; }
   th { background: #f8fafc; color: #6b7280; font-weight: 600; position: sticky; top:0; z-index:1;}
   tbody tr:hover { background: #f8fafc; }
   td.old { color: #9ca3af; word-break: break-all; }
   td.new { color: #2563eb; font-weight: 500; word-break: break-all; }
   td.new.warn { color: #f59e0b; }
   td.new.err { color: #ef4444; }
-  td.new.edit input { width:100%; padding:4px 6px; border:1px solid #93c5fd; border-radius:4px; font-size:13px; color:#2563eb; font-weight:500;}
+  td.new.edit input { width:100%; padding:3px 5px; border:1px solid #93c5fd; border-radius:4px; font-size:12px; color:#2563eb; font-weight:500;}
   .arrow { color: #cbd5e1; }
-  .table-wrap { max-height: 380px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
-  .empty { text-align:center; color:#9ca3af; padding: 40px 0; }
+  .table-wrap { max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .empty { text-align:center; color:#9ca3af; padding: 18px 0; }
 
-  .summary { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size:13px; color:#4b5563;}
-  .summary .badge { background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; font-weight:600;}
+  .summary { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size:12px; color:#4b5563;}
+  .summary .badge { background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:20px; font-weight:600;}
   .summary .badge.warn { background:#fef3c7; color:#b45309; }
   .summary .badge.err { background:#fee2e2; color:#b91c1c; }
   .summary .badge.ok { background:#dcfce7; color:#15803d; }
   .summary .badge.muted { background:#f3f4f6; color:#6b7280; }
 
   .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-    background: #111827; color: #fff; padding: 12px 24px; border-radius: 8px;
-    font-size: 14px; opacity: 0; transition: all .3s; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #111827; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; transition: all .3s; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.3);
     max-width: 90%;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.success { background: #16a34a; }
   .toast.error { background: #ef4444; }
 
-  .rule-actions { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
-  .preset-row { display:flex; gap:8px; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed #e5e7eb;}
-  .preset-row input { flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;}
-  .preset-row select { padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; max-width:200px;}
+  .rule-actions { margin-top: 8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .preset-row { display:flex; gap:6px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed #e5e7eb;}
+  .preset-row input { flex:1; padding:5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;}
+  .preset-row select { padding:5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px; max-width:180px;}
 
-  .history { max-height: 180px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; margin-top:12px;}
-  .history table td { font-size:12px; padding:6px 10px;}
-  .history .hdr { font-size:13px; color:#6b7280; font-weight:600; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;}
+  .history { max-height: 150px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; margin-top:0;}
+  .history table td { font-size:12px; padding:4px 8px;}
+  .history .hdr { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;}
 
-  .footer { text-align:center; color:#9ca3af; font-size:12px; padding: 20px; }
+  .footer { text-align:center; color:#9ca3af; font-size:11px; padding: 12px; }
   .hidden { display: none !important; }
 
   .excel-drop {
-    border: 2px dashed #cbd5e1; border-radius: 10px; padding: 22px 16px; text-align: center;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    border: 1px dashed #cbd5e1; border-radius: 6px; padding: 7px 10px;
     background: #f8fafc; cursor: pointer; transition: all .15s;
   }
   .excel-drop:hover, .excel-drop.dragover { border-color: #2563eb; background: #eff6ff; }
-  .excel-drop .big { font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 4px; }
-  .excel-drop .small { font-size: 12px; color: #9ca3af; }
-  .excel-file-name { font-weight: 600; color: #2563eb; word-break: break-all; }
+  .excel-drop .big { font-size: 13px; font-weight: 600; color: #374151; }
+  .excel-drop .small { font-size: 11px; color: #9ca3af; }
+  .excel-file-name { font-weight: 600; color: #2563eb; word-break: break-all; font-size:12px; }
 
-  .excel-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .excel-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   @media (max-width: 800px){ .excel-map { grid-template-columns: 1fr 1fr; } }
-  .field label { display:block; font-size:12px; color:#6b7280; font-weight:600; margin-bottom:6px; }
-  .hint { font-size:12px; color:#6b7280; margin-top:12px; line-height:1.5; }
-  .match-opts { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:14px; font-size:13px; color:#374151; }
-  .match-opts label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .field label { display:block; font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; }
+  .hint { font-size:11px; color:#6b7280; margin-top:6px; line-height:1.45; }
+  .match-opts { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:8px; font-size:12px; color:#374151; }
+  .match-opts label { display:flex; align-items:center; gap:5px; cursor:pointer; }
   .match-opts input { accent-color:#2563eb; }
-  .chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-  .chip { background:#eff6ff; color:#1d4ed8; font-size:12px; padding:3px 8px; border-radius:999px; }
-  .unmatched-box { margin-top:12px; border:1px solid #fde68a; background:#fffbeb; border-radius:8px; padding:10px 12px; font-size:12px; color:#92400e; }
-  .unmatched-box ul { margin:6px 0 0 18px; max-height:120px; overflow:auto; }
-  .ext-filters { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:0; }
+  .chip { background:#eff6ff; color:#1d4ed8; font-size:11px; padding:2px 6px; border-radius:999px; }
+  .unmatched-box { margin-top:8px; border:1px solid #fde68a; background:#fffbeb; border-radius:6px; padding:6px 8px; font-size:12px; color:#92400e; }
+  .unmatched-box ul { margin:4px 0 0 16px; max-height:90px; overflow:auto; }
+  .ext-filters { display:flex; flex-wrap:wrap; gap:4px; }
   .ext-filters button {
-    border:1px solid #d1d5db; background:#fff; border-radius:999px; padding:4px 10px;
-    font-size:12px; cursor:pointer; color:#4b5563;
+    border:1px solid #d1d5db; background:#fff; border-radius:999px; padding:2px 8px;
+    font-size:11px; cursor:pointer; color:#4b5563;
   }
   .ext-filters button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
-  .preview-note { font-size:12px; color:#9ca3af; margin-top:6px; }
+  .preview-note { font-size:11px; color:#9ca3af; margin-top:4px; }
   textarea.paste-map {
-    width:100%; min-height:90px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px;
-    font-size:13px; font-family: ui-monospace, Consolas, monospace; resize:vertical;
+    width:100%; min-height:64px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px;
+    font-size:12px; font-family: ui-monospace, Consolas, monospace; resize:vertical;
   }
-  details.more { margin-top:12px; }
-  details.more summary { cursor:pointer; font-size:13px; color:#4b5563; font-weight:600; }
+  details.more { margin-top:8px; }
+  details.more summary { cursor:pointer; font-size:12px; color:#4b5563; font-weight:600; }
+  td.num { color:#6b7280; width:56px; font-variant-numeric: tabular-nums; }
+  td.base { font-weight:500; word-break:break-all; }
+  td.fmt { color:#7c3aed; font-family: ui-monospace, Consolas, monospace; white-space:nowrap; }
+  td.time { color:#4b5563; white-space:nowrap; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 <header>
   <h1>📁 文件批量重命名工具</h1>
-  <p>选一次文件夹，Excel 对照和规则可同时用在同一批文件上 → 预览 → 一键应用（可回滚）。全部在本地完成。</p>
+  <p>选一次文件夹，自动生成文件清单，Excel 对照和规则可同时用在同一批文件上 → 预览 → 一键应用（可回滚）。全部在本地完成。</p>
 </header>
 
 <div class="container">
   <div class="card" id="folderCard">
-    <h2><span class="step">1</span> 选择文件夹</h2>
-    <div class="folder-info" id="folderDrop">
-      <button class="btn btn-primary" id="btnSelect">选择文件夹</button>
-      <span class="name" id="folderName">尚未选择文件夹</span>
-      <span class="count" id="fileCount"></span>
+    <div class="card-head">
+      <h2><span class="step">1</span> 选择文件夹</h2>
+      <div class="folder-info" id="folderDrop">
+        <button class="btn btn-primary" id="btnSelect">选择文件夹</button>
+        <button class="btn btn-secondary" id="btnSelectFiles">选择多个文件</button>
+        <span class="name" id="folderName">尚未选择文件夹</span>
+        <span class="count" id="fileCount"></span>
+      </div>
     </div>
-    <div class="browser-note">
-      💡 选一次即可，下面的 Excel 对照和命名规则都作用在这个文件夹。Chrome / Edge 可直接改磁盘文件，也可把文件夹拖到虚线框。若浏览器不支持，可用「选择多个文件」仅预览。
-      <button class="btn btn-secondary" id="btnSelectFiles" style="padding:6px 12px;font-size:12px;margin-left:8px;">选择多个文件</button>
+    <p class="browser-note">Chrome / Edge 可直接改磁盘文件，也可把文件夹拖到虚线框。多文件模式仅预览。</p>
+  </div>
+
+  <div class="card" id="inventoryCard">
+    <h2><span class="step">2</span> 文件清单 <span class="sub">导出模板填「新名称」后，回到下一步对照</span></h2>
+    <div class="toolbar">
+      <input type="text" class="search-box" id="invSearch" placeholder="筛选名称或格式...">
+      <div class="toolbar-opts">
+        <label>序号位数
+          <select id="invPad" title="例如选 3 位则显示 001、002、003">
+            <option value="1">1（1）</option>
+            <option value="2">2（01）</option>
+            <option value="3" selected>3（001）</option>
+            <option value="4">4（0001）</option>
+            <option value="5">5（00001）</option>
+            <option value="6">6（000001）</option>
+          </select>
+        </label>
+        <label>排序
+          <select id="invSort">
+            <option value="name">名称</option>
+            <option value="ext">格式</option>
+            <option value="time">创建时间</option>
+          </select>
+        </label>
+        <label style="cursor:pointer;"><input type="checkbox" id="invMerge" style="accent-color:#2563eb;"> 按名称合并</label>
+      </div>
+      <button class="btn btn-secondary" id="btnCopyInv">复制</button>
+      <button class="btn btn-secondary" id="btnExportInv">导出清单</button>
+      <button class="btn btn-primary" id="btnExportTpl">导出模板</button>
+      <button class="btn btn-secondary" id="btnWriteInv">写入文件夹</button>
+      <button class="btn btn-secondary" id="btnLoadInv" title="读取本文件夹里已填好新名称的清单，作为对照表">载入对照</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:64px;">序号</th>
+            <th>名称</th>
+            <th style="width:120px;">格式</th>
+            <th style="width:170px;">创建时间</th>
+          </tr>
+        </thead>
+        <tbody id="invBody">
+          <tr><td colspan="4" class="empty">请先选择文件夹</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="summary">
+      <span class="badge" id="invCount">0 个文件</span>
+      <span class="badge muted" id="invNote">浏览器只能读取修改时间，与资源管理器「创建日期」可能不同</span>
     </div>
   </div>
 
   <div class="card" id="rulesCard">
-    <h2><span class="step">3</span> 配置命名规则（可叠在 Excel 对照之后）</h2>
+    <h2><span class="step">4</span> 配置命名规则 <span class="sub">可叠在 Excel 对照之后</span></h2>
     <div class="rules-grid">
       <div class="rule" id="rule-prefix">
         <label><input type="checkbox" data-rule="prefix"> 添加前缀</label>
@@ -337,9 +404,9 @@
       <button class="btn btn-secondary" id="btnReset">重置规则</button>
       <button class="btn btn-secondary" id="btnCopy">复制新名称</button>
       <span style="flex:1"></span>
-      <label style="font-size:13px;color:#4b5563;display:flex;align-items:center;gap:6px;">
-        编号排序依据
-        <select id="sortMode" style="width:auto;padding:6px 8px;">
+      <label style="font-size:12px;color:#4b5563;display:flex;align-items:center;gap:4px;">
+        编号排序
+        <select id="sortMode" style="width:auto;padding:4px 6px;font-size:12px;">
           <option value="name">文件名</option>
           <option value="size">文件大小</option>
           <option value="date">修改时间</option>
@@ -347,27 +414,27 @@
       </label>
     </div>
     <div class="preset-row">
-      <label style="font-size:13px;color:#4b5563;white-space:nowrap;">规则预设：</label>
+      <label style="font-size:12px;color:#4b5563;white-space:nowrap;">预设</label>
       <select id="presetSelect"><option value="">选择预设...</option></select>
       <input type="text" id="presetName" placeholder="预设名称">
-      <button class="btn btn-secondary" id="btnSavePreset" style="padding:6px 12px;">保存当前规则</button>
-      <button class="btn btn-secondary" id="btnLoadPreset" style="padding:6px 12px;">应用</button>
-      <button class="btn btn-danger" id="btnDelPreset" style="padding:6px 12px;">删除</button>
+      <button class="btn btn-secondary" id="btnSavePreset">保存规则</button>
+      <button class="btn btn-secondary" id="btnLoadPreset">应用</button>
+      <button class="btn btn-danger" id="btnDelPreset">删除</button>
     </div>
   </div>
 
   <div class="card" id="excelCard">
-    <h2><span class="step">2</span> 用 Excel 对照改名（可选）</h2>
+    <h2><span class="step">3</span> Excel 对照改名 <span class="sub">可选</span></h2>
     <div class="excel-drop" id="excelDrop">
-      <div class="big" id="excelDropTitle">点击或拖入 Excel / CSV</div>
-      <div class="small">支持 .xlsx .xls .csv .tsv · 表格只在浏览器里读，不会上传</div>
-      <div class="excel-file-name" id="excelFileName" style="margin-top:8px;"></div>
+      <span class="big" id="excelDropTitle">点击或拖入 Excel / CSV</span>
+      <span class="small">xlsx / xls / csv / tsv · 仅本地读取</span>
+      <span class="excel-file-name" id="excelFileName"></span>
     </div>
     <input type="file" id="excelInput" accept=".xlsx,.xls,.csv,.tsv,.txt" class="hidden">
 
     <div id="excelReady" class="hidden">
-      <div class="toolbar" style="margin-top:14px;">
-        <div class="field" style="min-width:180px;">
+      <div class="toolbar" style="margin-top:8px;">
+        <div class="field" style="min-width:160px;">
           <label>工作表</label>
           <select id="sheetSelect"></select>
         </div>
@@ -397,7 +464,7 @@
           </select>
         </label>
         <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
-        <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零（Excel 里 1 也能对上 001.jpg）</label>
+        <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零</label>
       </div>
       <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
       <div id="unmatchedBox" class="unmatched-box hidden"></div>
@@ -408,14 +475,14 @@
       <div style="margin-top:10px;">
         <textarea class="paste-map" id="pasteMap" placeholder="001&#9;张三访谈&#10;002&#9;李四讲座"></textarea>
         <div style="margin-top:8px;">
-          <button class="btn btn-secondary" id="btnUsePaste" style="padding:6px 12px;">用这段对照表</button>
+          <button class="btn btn-secondary" id="btnUsePaste">用这段对照表</button>
         </div>
       </div>
     </details>
   </div>
 
   <div class="card" id="previewCard">
-    <h2><span class="step">4</span> 预览与应用</h2>
+    <h2><span class="step">5</span> 预览与应用</h2>
     <div class="toolbar">
       <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索文件名...">
       <div class="ext-filters" id="extFilters"></div>
@@ -451,13 +518,13 @@
   </div>
 
   <div class="card" id="rollbackCard">
-    <h2><span class="step">5</span> 回滚（撤销）</h2>
+    <h2><span class="step">6</span> 回滚（撤销）</h2>
     <div class="history">
       <div class="hdr">
         <span>操作历史（已写入文件夹）</span>
         <span style="display:flex;gap:8px;">
-          <button class="btn btn-secondary" id="btnUndo" disabled style="padding:4px 12px;font-size:12px;">撤销上一次</button>
-          <button class="btn btn-danger" id="btnRollbackAll" disabled style="padding:4px 12px;font-size:12px;">全部回滚</button>
+          <button class="btn btn-secondary" id="btnUndo" disabled>撤销上一次</button>
+          <button class="btn btn-danger" id="btnRollbackAll" disabled>全部回滚</button>
         </span>
       </div>
       <table>
@@ -465,9 +532,7 @@
         <tbody id="historyBody"><tr><td colspan="3" class="empty">暂无操作记录</td></tr></tbody>
       </table>
     </div>
-    <div style="font-size:12px;color:#9ca3af;margin-top:8px;">
-      ⚠️ 记录保存在该文件夹的 <code>.rename_history.json</code>。关掉浏览器后再打开本工具、选回同一文件夹，仍可撤销。回滚会把文件从「新名称」改回「原名称」。撤销上一次 = 回滚最近一次批量操作。全部回滚后会删除这份记录。
-    </div>
+    <p class="hint">记录保存在该文件夹的 <code>.rename_history.json</code>。选回同一文件夹仍可撤销；全部回滚后会删除这份记录。</p>
   </div>
 </div>
 
@@ -498,6 +563,7 @@ const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 const PRESET_KEY = 'file-renamer-presets-v2';
 const HISTORY_NAME = '.rename_history.json';
+const INVENTORY_NAME = '文件清单.xlsx';
 
 try { presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}') || {}; } catch(e){ presets = {}; }
 
@@ -530,6 +596,17 @@ function formatDate(fmt){
     'mm': pad(d.getMinutes(), 2)
   };
   return fmt.replace(/YYYY|MM|DD|HH|mm/g, m => map[m]);
+}
+
+function formatDateTime(ms){
+  if(!ms && ms !== 0) return '';
+  const d = new Date(ms);
+  if(isNaN(d)) return '';
+  return `${d.getFullYear()}-${pad(d.getMonth()+1, 2)}-${pad(d.getDate(), 2)} ${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}:${pad(d.getSeconds(), 2)}`;
+}
+
+function isSkippedListFile(name){
+  return name === HISTORY_NAME || name === INVENTORY_NAME || name.startsWith('.__renaming_');
 }
 
 function randomName(type, len){
@@ -615,7 +692,11 @@ function escapeHtml(s){
 function guessCol(cols, keywords, fallback){
   const lower = cols.map(c => String(c).toLowerCase());
   for(const kw of keywords){
-    const i = lower.findIndex(c => c.includes(kw));
+    const i = lower.findIndex(c => c === String(kw).toLowerCase());
+    if(i >= 0) return cols[i];
+  }
+  for(const kw of keywords){
+    const i = lower.findIndex(c => c.includes(kw) && !(kw === '名称' && c.includes('新')));
     if(i >= 0) return cols[i];
   }
   return fallback;
@@ -642,8 +723,7 @@ async function loadFromDirectory(opts = {}){
   files = [];
   for await (const entry of dirHandle.values()){
     if(entry.kind === 'file'){
-      if(entry.name.startsWith('.__renaming_')) continue;
-      if(entry.name === HISTORY_NAME) continue;
+      if(isSkippedListFile(entry.name)) continue;
       let size = 0, mtime = 0;
       try { const f = await entry.getFile(); size = f.size; mtime = f.lastModified; } catch(e){}
       files.push({ handle: entry, name: entry.name, ext: splitExt(entry.name).ext, size, mtime, selected: true, override: null });
@@ -655,6 +735,7 @@ async function loadFromDirectory(opts = {}){
   if(excelRowsRaw.length) applyExcelSelection();
   if(opts.reloadHistory === false) renderHistory();
   else await loadHistoryFromFolder();
+  renderInventory();
   refresh();
 }
 
@@ -665,12 +746,13 @@ $('btnSelectFiles').addEventListener('click', () => {
   input.onchange = () => {
     useFilePicker = true;
     dirHandle = null;
-    files = Array.from(input.files).map(f => ({
+    files = Array.from(input.files).filter(f => !isSkippedListFile(f.name)).map(f => ({
       handle: null, name: f.name, ext: splitExt(f.name).ext, size: f.size, mtime: f.lastModified, selected: true, override: null
     }));
     $('folderName').textContent = '（多文件选择模式，仅预览）';
     $('fileCount').textContent = files.length + ' 个文件';
     if(excelRowsRaw.length) applyExcelSelection();
+    renderInventory();
     refresh();
   };
   input.click();
@@ -696,6 +778,182 @@ $('folderDrop').addEventListener('drop', async e => {
     toast('无法读取拖入的文件夹', 'error');
   }
 });
+
+// ============ 文件清单 ============
+function inventoryPadWidth(){
+  const n = parseInt($('invPad').value, 10);
+  return Math.max(1, Math.min(6, isNaN(n) ? 3 : n));
+}
+
+function formatInvNo(n){
+  return pad(n, inventoryPadWidth());
+}
+
+function getInventoryRows(){
+  const sort = $('invSort').value;
+  const merge = $('invMerge').checked;
+  const list = files.slice();
+  const byName = (a, b) => a.name.localeCompare(b.name, 'zh');
+  if(sort === 'ext'){
+    list.sort((a, b) => (a.ext || '').localeCompare(b.ext || '', 'zh') || byName(a, b));
+  } else if(sort === 'time'){
+    list.sort((a, b) => (a.mtime || 0) - (b.mtime || 0) || byName(a, b));
+  } else {
+    list.sort(byName);
+  }
+
+  if(merge){
+    const map = new Map();
+    list.forEach(f => {
+      const { base, ext } = splitExt(f.name);
+      if(!map.has(base)){
+        map.set(base, { base, exts: [], time: f.mtime || 0 });
+      }
+      const g = map.get(base);
+      if(ext && !g.exts.includes(ext)) g.exts.push(ext);
+      if(f.mtime && (!g.time || f.mtime < g.time)) g.time = f.mtime;
+    });
+    return [...map.values()].map((g, i) => ({
+      no: formatInvNo(i + 1),
+      base: g.base,
+      ext: g.exts.join(', '),
+      time: formatDateTime(g.time)
+    }));
+  }
+
+  return list.map((f, i) => {
+    const { base, ext } = splitExt(f.name);
+    return { no: formatInvNo(i + 1), base, ext, time: formatDateTime(f.mtime) };
+  });
+}
+
+function renderInventory(){
+  const tbody = $('invBody');
+  if(!files.length){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">请先选择文件夹</td></tr>';
+    $('invCount').textContent = '0 个文件';
+    return;
+  }
+  const q = ($('invSearch').value || '').trim().toLowerCase();
+  const rows = getInventoryRows();
+  const shown = q ? rows.filter(r =>
+    String(r.no).includes(q) ||
+    r.base.toLowerCase().includes(q) ||
+    r.ext.toLowerCase().includes(q) ||
+    r.time.includes(q)
+  ) : rows;
+  if(!shown.length){
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">无匹配文件</td></tr>';
+  } else {
+    tbody.innerHTML = shown.map(r => `<tr>
+      <td class="num">${r.no}</td>
+      <td class="base">${escapeHtml(r.base)}</td>
+      <td class="fmt">${escapeHtml(r.ext)}</td>
+      <td class="time">${escapeHtml(r.time)}</td>
+    </tr>`).join('');
+  }
+  const merge = $('invMerge').checked;
+  $('invCount').textContent = merge
+    ? `${rows.length} 个名称 · ${files.length} 个文件`
+    : `${files.length} 个文件`;
+}
+
+function inventoryAOA(withNewCol){
+  const header = ['序号', '名称', '格式', '创建时间'];
+  if(withNewCol) header.push('新名称');
+  return [header].concat(getInventoryRows().map(r => {
+    const line = [r.no, r.base, r.ext, r.time];
+    if(withNewCol) line.push('');
+    return line;
+  }));
+}
+
+function buildInventoryWorkbook(aoa){
+  if(typeof XLSX === 'undefined') throw new Error('Excel 库未加载');
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 16 }, { wch: 22 }, { wch: 36 }];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for(let r = 1; r <= range.e.r; r++){
+    const addr = XLSX.utils.encode_cell({ r, c: 0 });
+    if(ws[addr]){
+      ws[addr].t = 's';
+      ws[addr].v = String(ws[addr].v);
+      ws[addr].z = '@';
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '文件清单');
+  return wb;
+}
+
+function inventoryFileName(kind){
+  const folder = dirHandle ? dirHandle.name : '文件';
+  const suffix = kind === 'tpl' ? '对照模板' : '清单';
+  return `文件${suffix}-${folder}.xlsx`;
+}
+
+function exportInventory(withNewCol){
+  if(!files.length){ toast('请先选择文件夹', 'error'); return; }
+  try {
+    const wb = buildInventoryWorkbook(inventoryAOA(withNewCol));
+    XLSX.writeFile(wb, withNewCol ? inventoryFileName('tpl') : inventoryFileName('list'));
+    toast(withNewCol ? '已导出对照模板，请填写「新名称」列' : '已导出文件清单', 'success');
+  } catch(e){
+    toast('导出失败：' + e.message, 'error');
+  }
+}
+
+async function writeInventoryToFolder(){
+  if(useFilePicker || !dirHandle){ toast('写入磁盘需要先用「选择文件夹」', 'error'); return; }
+  if(!files.length){ toast('没有可写入的文件', 'error'); return; }
+  try {
+    const wb = buildInventoryWorkbook(inventoryAOA(true));
+    const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const fh = await dirHandle.getFileHandle(INVENTORY_NAME, { create: true });
+    const w = await fh.createWritable();
+    await w.write(data);
+    await w.close();
+    toast('已写入 ' + INVENTORY_NAME + '（含空的「新名称」列）', 'success');
+  } catch(e){
+    toast('无法写入清单：' + e.message, 'error');
+  }
+}
+
+async function loadInventoryAsMap(){
+  if(useFilePicker || !dirHandle){ toast('请先选择文件夹', 'error'); return; }
+  try {
+    const fh = await dirHandle.getFileHandle(INVENTORY_NAME);
+    const file = await fh.getFile();
+    await loadExcelFile(file);
+    if($('oldCol') && [...$('oldCol').options].some(o => o.value === '名称')) $('oldCol').value = '名称';
+    if($('newCol') && [...$('newCol').options].some(o => o.value === '新名称')) $('newCol').value = '新名称';
+    applyExcelSelection();
+    refresh();
+    toast('已载入文件夹中的清单作为对照表', 'success');
+  } catch(e){
+    toast('未找到 ' + INVENTORY_NAME + '，请先「写入当前文件夹」并填好新名称', 'error');
+  }
+}
+
+function copyInventory(){
+  if(!files.length){ toast('没有文件', 'error'); return; }
+  const rows = getInventoryRows();
+  const text = ['序号\t名称\t格式\t创建时间'].concat(
+    rows.map(r => [r.no, r.base, r.ext, r.time].join('\t'))
+  ).join('\n');
+  navigator.clipboard.writeText(text).then(
+    () => toast('已复制 ' + rows.length + ' 行清单', 'success'),
+    () => toast('复制失败', 'error')
+  );
+}
+
+['invSort', 'invMerge', 'invPad'].forEach(id => $(id).addEventListener('change', renderInventory));
+$('invSearch').addEventListener('input', renderInventory);
+$('btnCopyInv').addEventListener('click', copyInventory);
+$('btnExportInv').addEventListener('click', () => exportInventory(false));
+$('btnExportTpl').addEventListener('click', () => exportInventory(true));
+$('btnWriteInv').addEventListener('click', writeInventoryToFolder);
+$('btnLoadInv').addEventListener('click', loadInventoryAsMap);
 
 // ============ 规则 UI ============
 document.querySelectorAll('.rule input, .rule select').forEach(el => {
@@ -880,9 +1138,9 @@ function fillColSelects(){
   fill(newSel, false);
   fill(extraSel, true);
   if(excelCols.length){
-    oldSel.value = guessCol(excelCols, ['原文件','原名','旧名','old','filename','文件名','标题','序号','案名','编号'], excelCols[0]);
+    oldSel.value = guessCol(excelCols, ['原名称','原文件','原名','旧名','当前名称','名称','old','filename','文件名','标题','案名','编号'], excelCols[0]);
     const rest = excelCols.filter(c => c !== oldSel.value);
-    newSel.value = guessCol(rest, ['新文件','新名','目标','new','案号','重命名','名称'], rest[0] || excelCols[0]);
+    newSel.value = guessCol(rest, ['新名称','新文件','新名','目标','new','案号','重命名'], rest[0] || excelCols[0]);
     extraSel.value = guessCol(excelCols, ['附加','备注','extra','说明','信息','说话人','speaker'], '') || '';
     if(extraSel.value === oldSel.value || extraSel.value === newSel.value) extraSel.value = '';
   }
