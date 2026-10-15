@@ -70,6 +70,13 @@
   .folder-info.dragover { border-color: #2563eb; background: #eff6ff; }
   .folder-info .name { font-weight: 600; color: #2563eb; word-break: break-all; font-size:13px; }
   .folder-info .count { color: #6b7280; font-size: 12px; }
+  .import-exts { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; margin-top:8px; font-size:12px; color:#4b5563; }
+  .import-exts .import-exts-label { font-weight:600; color:#374151; }
+  .import-exts label { display:flex; align-items:center; gap:3px; cursor:pointer; }
+  .import-exts input { accent-color:#2563eb; }
+  .import-exts input[type="text"] {
+    width: 8.5em; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;
+  }
   .browser-note { font-size: 11px; color: #9ca3af; margin-top: 6px; }
 
   .rules-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -197,7 +204,25 @@
         <span class="count" id="fileCount"></span>
       </div>
     </div>
-    <p class="browser-note">Chrome / Edge 可直接改磁盘文件，也可把文件夹拖到虚线框。多文件模式仅预览。</p>
+    <div class="import-exts" id="importExts">
+      <span class="import-exts-label">导入格式</span>
+      <label><input type="checkbox" data-ext="mp4" checked> mp4</label>
+      <label><input type="checkbox" data-ext="mkv"> mkv</label>
+      <label><input type="checkbox" data-ext="mov"> mov</label>
+      <label><input type="checkbox" data-ext="avi"> avi</label>
+      <label><input type="checkbox" data-ext="webm"> webm</label>
+      <label><input type="checkbox" data-ext="wav"> wav</label>
+      <label><input type="checkbox" data-ext="mp3"> mp3</label>
+      <label><input type="checkbox" data-ext="m4a"> m4a</label>
+      <label><input type="checkbox" data-ext="flac"> flac</label>
+      <label><input type="checkbox" data-ext="aac"> aac</label>
+      <label><input type="checkbox" data-ext="ogg"> ogg</label>
+      <label><input type="checkbox" id="importExtAll"> 全部</label>
+      <label class="import-ext-extra">其他
+        <input type="text" id="importExtExtra" placeholder="wma、opus" spellcheck="false" autocomplete="off">
+      </label>
+    </div>
+    <p class="browser-note">选择文件夹或拖入文件夹时，只导入勾选的音视频格式，默认只有 mp4。「全部」只勾选上面这些格式。其他扩展名写在「其他」里，用顿号或逗号分开。改勾选会重新列出当前文件夹。点选多个文件时，仍导入你选中的那些文件。</p>
   </div>
 
   <div class="card" id="inventoryCard">
@@ -609,6 +634,29 @@ function isSkippedListFile(name){
   return name === HISTORY_NAME || name === INVENTORY_NAME || name.startsWith('.__renaming_');
 }
 
+function parseExtraImportExts(text){
+  const set = new Set();
+  String(text || '').split(/[\s,，、;；]+/).forEach(part => {
+    const ext = part.trim().toLowerCase().replace(/^\.+/, '');
+    if(/^[a-z0-9]{1,10}$/.test(ext)) set.add(ext);
+  });
+  return set;
+}
+
+function selectedImportExts(){
+  const set = new Set();
+  document.querySelectorAll('#importExts input[data-ext]').forEach(el => {
+    if(el.checked) set.add(el.dataset.ext);
+  });
+  parseExtraImportExts($('importExtExtra').value).forEach(ext => set.add(ext));
+  return set;
+}
+
+function extAllowedForImport(name){
+  const ext = (splitExt(name).ext || '').toLowerCase();
+  return selectedImportExts().has(ext);
+}
+
 function randomName(type, len){
   if(type === 'uuid'){
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -721,9 +769,15 @@ $('btnSelect').addEventListener('click', async () => {
 
 async function loadFromDirectory(opts = {}){
   files = [];
+  const allow = selectedImportExts();
+  if(allow && allow.size === 0){
+    toast('请至少勾选一种导入格式', 'error');
+  }
+  let skippedExt = 0;
   for await (const entry of dirHandle.values()){
     if(entry.kind === 'file'){
       if(isSkippedListFile(entry.name)) continue;
+      if(!extAllowedForImport(entry.name)){ skippedExt++; continue; }
       let size = 0, mtime = 0;
       try { const f = await entry.getFile(); size = f.size; mtime = f.lastModified; } catch(e){}
       files.push({ handle: entry, name: entry.name, ext: splitExt(entry.name).ext, size, mtime, selected: true, override: null });
@@ -731,7 +785,7 @@ async function loadFromDirectory(opts = {}){
   }
   files.sort((a,b)=> a.name.localeCompare(b.name, 'zh'));
   $('folderName').textContent = dirHandle.name;
-  $('fileCount').textContent = files.length + ' 个文件';
+  $('fileCount').textContent = files.length + ' 个文件' + (skippedExt ? ('，已跳过 ' + skippedExt + ' 个其他格式') : '');
   if(excelRowsRaw.length) applyExcelSelection();
   if(opts.reloadHistory === false) renderHistory();
   else await loadHistoryFromFolder();
@@ -762,6 +816,28 @@ $('btnSelectFiles').addEventListener('click', () => {
   $('folderDrop').addEventListener(ev, e => { e.preventDefault(); $('folderDrop').classList.add('dragover'); });
 });
 $('folderDrop').addEventListener('dragleave', () => $('folderDrop').classList.remove('dragover'));
+let importExtTimer = 0;
+function reloadImportExtsSoon(){
+  clearTimeout(importExtTimer);
+  importExtTimer = setTimeout(() => {
+    if(dirHandle && !useFilePicker) loadFromDirectory({ reloadHistory: false });
+  }, 400);
+}
+
+$('importExts').addEventListener('change', async (e) => {
+  const t = e.target;
+  const boxes = [...document.querySelectorAll('#importExts input[data-ext]')];
+  if(t.id === 'importExtAll'){
+    boxes.forEach(el => { el.checked = t.checked; });
+  } else if(t.dataset && t.dataset.ext){
+    $('importExtAll').checked = boxes.length > 0 && boxes.every(el => el.checked);
+  }
+  if(dirHandle && !useFilePicker){
+    await loadFromDirectory({ reloadHistory: false });
+  }
+});
+$('importExtExtra').addEventListener('input', reloadImportExtsSoon);
+
 $('folderDrop').addEventListener('drop', async e => {
   e.preventDefault();
   $('folderDrop').classList.remove('dragover');
