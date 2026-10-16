@@ -229,7 +229,7 @@
   <div class="card" id="inventoryCard">
     <h2><span class="step">2</span> 文件清单 <span class="sub">导出模板填「新名称」后，回到下一步对照</span></h2>
     <div class="toolbar">
-      <input type="text" class="search-box" id="invSearch" placeholder="筛选名称或格式...">
+      <input type="text" class="search-box" id="invSearch" placeholder="筛选篇目或格式...">
       <div class="toolbar-opts">
         <label>编号位数
           <select id="invPad" title="例如选 3 位则显示 001、002、003">
@@ -246,17 +246,17 @@
         </label>
         <label>排序
           <select id="invSort">
-            <option value="name">名称</option>
+            <option value="name">篇目</option>
             <option value="ext">格式</option>
             <option value="time">创建时间</option>
           </select>
         </label>
-        <label style="cursor:pointer;"><input type="checkbox" id="invMerge" style="accent-color:#2563eb;"> 按名称合并</label>
+        <label style="cursor:pointer;"><input type="checkbox" id="invMerge" style="accent-color:#2563eb;"> 按篇目合并</label>
       </div>
       <button class="btn btn-secondary" id="btnCopyInv">复制</button>
-      <button class="btn btn-secondary" id="btnExportInv" title="写入当前文件夹，文件名为 list.xlsx">导出清单</button>
+      <button class="btn btn-secondary" id="btnExportInv" title="写入当前文件夹的 list.xlsx；若已有同名文件则写为 list(2).xlsx">导出清单</button>
       <button class="btn btn-primary" id="btnExportTpl">导出模板</button>
-      <button class="btn btn-secondary" id="btnWriteInv">写入文件夹</button>
+      <button class="btn btn-secondary" id="btnWriteInv" title="写入 list.xlsx；若已有同名文件则写为 list(2).xlsx">写入文件夹</button>
       <button class="btn btn-secondary" id="btnLoadInv" title="重新读取本文件夹里的 list.xlsx，作为对照表">载入对照</button>
     </div>
     <div class="table-wrap">
@@ -264,13 +264,17 @@
         <thead>
           <tr>
             <th style="width:72px;">编号</th>
-            <th>名称</th>
-            <th style="width:120px;">格式</th>
-            <th style="width:170px;">创建时间</th>
+            <th style="width:72px;">类型</th>
+            <th style="width:80px;">类别</th>
+            <th style="width:88px;">创作者</th>
+            <th style="width:56px;">年份</th>
+            <th>篇目</th>
+            <th style="width:90px;">格式</th>
+            <th style="width:150px;">创建时间</th>
           </tr>
         </thead>
         <tbody id="invBody">
-          <tr><td colspan="4" class="empty">请先选择文件夹</td></tr>
+          <tr><td colspan="8" class="empty">请先选择文件夹</td></tr>
         </tbody>
       </table>
     </div>
@@ -634,10 +638,14 @@ function formatDateTime(ms){
   return `${d.getFullYear()}-${pad(d.getMonth()+1, 2)}-${pad(d.getDate(), 2)} ${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}:${pad(d.getSeconds(), 2)}`;
 }
 
+function isListXlsxName(name){
+  return /^list(\(\d+\))?\.xlsx$/.test(String(name).toLowerCase());
+}
+
 function isSkippedListFile(name){
   const lower = String(name).toLowerCase();
   return lower === HISTORY_NAME.toLowerCase()
-    || lower === INVENTORY_NAME.toLowerCase()
+    || isListXlsxName(name)
     || lower === '文件清单.xlsx'
     || String(name).startsWith('.__renaming_');
 }
@@ -918,7 +926,7 @@ function getInventoryRows(){
 function renderInventory(){
   const tbody = $('invBody');
   if(!files.length){
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">请先选择文件夹</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">请先选择文件夹</td></tr>';
     $('invCount').textContent = '0 个文件';
     return;
   }
@@ -931,10 +939,14 @@ function renderInventory(){
     r.time.includes(q)
   ) : rows;
   if(!shown.length){
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">无匹配文件</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">无匹配文件</td></tr>';
   } else {
     tbody.innerHTML = shown.map(r => `<tr>
       <td class="num">${r.no}</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
       <td class="base">${escapeHtml(r.base)}</td>
       <td class="fmt">${escapeHtml(r.ext)}</td>
       <td class="time">${escapeHtml(r.time)}</td>
@@ -942,16 +954,16 @@ function renderInventory(){
   }
   const merge = $('invMerge').checked;
   $('invCount').textContent = merge
-    ? `${rows.length} 个名称 · ${files.length} 个文件`
+    ? `${rows.length} 个篇目 · ${files.length} 个文件`
     : `${files.length} 个文件`;
 }
 
 function inventoryAOA(withNewCol){
-  const header = ['编号', '名称', '格式', '创建时间'];
+  const header = ['编号', '类型', '类别', '创作者', '年份', '篇目', '格式', '创建时间'];
   if(withNewCol) header.push('新名称');
   return [header].concat(getInventoryRows().map(r => {
-    const line = [r.no, r.base, r.ext, r.time];
-    if(withNewCol) line.push('');
+    const line = [r.no, null, null, null, null, r.base, r.ext, r.time];
+    if(withNewCol) line.push(null);
     return line;
   }));
 }
@@ -959,7 +971,10 @@ function inventoryAOA(withNewCol){
 function buildInventoryWorkbook(aoa){
   if(typeof XLSX === 'undefined') throw new Error('Excel 库未加载');
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 16 }, { wch: 22 }, { wch: 36 }];
+  ws['!cols'] = [
+    { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 8 },
+    { wch: 36 }, { wch: 14 }, { wch: 20 }, { wch: 36 }
+  ];
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for(let r = 1; r <= range.e.r; r++){
     const addr = XLSX.utils.encode_cell({ r, c: 0 });
@@ -980,12 +995,32 @@ function inventoryFileName(kind){
   return `文件${suffix}-${folder}.xlsx`;
 }
 
+async function listFileExists(name){
+  try {
+    await dirHandle.getFileHandle(name);
+    return true;
+  } catch(e){
+    return false;
+  }
+}
+
+async function nextInventoryFileName(){
+  if(!(await listFileExists(INVENTORY_NAME))) return INVENTORY_NAME;
+  for(let n = 2; n < 1000; n++){
+    const name = `list(${n}).xlsx`;
+    if(!(await listFileExists(name))) return name;
+  }
+  throw new Error('清单副本过多');
+}
+
 async function writeXlsxToFolder(wb){
+  const name = await nextInventoryFileName();
   const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const fh = await dirHandle.getFileHandle(INVENTORY_NAME, { create: true });
+  const fh = await dirHandle.getFileHandle(name, { create: true });
   const w = await fh.createWritable();
   await w.write(data);
   await w.close();
+  return name;
 }
 
 async function exportInventory(withNewCol){
@@ -993,8 +1028,8 @@ async function exportInventory(withNewCol){
   try {
     const wb = buildInventoryWorkbook(inventoryAOA(withNewCol));
     if(!withNewCol && dirHandle && !useFilePicker){
-      await writeXlsxToFolder(wb);
-      toast('已写入当前文件夹的 ' + INVENTORY_NAME, 'success');
+      const name = await writeXlsxToFolder(wb);
+      toast('已写入当前文件夹的 ' + name, 'success');
       return;
     }
     XLSX.writeFile(wb, withNewCol ? inventoryFileName('tpl') : INVENTORY_NAME);
@@ -1016,8 +1051,8 @@ async function writeInventoryToFolder(){
   if(!files.length){ toast('没有可写入的文件', 'error'); return; }
   try {
     const wb = buildInventoryWorkbook(inventoryAOA(true));
-    await writeXlsxToFolder(wb);
-    toast('已写入 ' + INVENTORY_NAME + '（含空的「新名称」列）', 'success');
+    const name = await writeXlsxToFolder(wb);
+    toast('已写入 ' + name, 'success');
   } catch(e){
     toast('无法写入清单：' + e.message, 'error');
   }
@@ -1039,12 +1074,10 @@ async function loadInventoryAsMap(){
 
 function copyInventory(){
   if(!files.length){ toast('没有文件', 'error'); return; }
-  const rows = getInventoryRows();
-  const text = ['编号\t名称\t格式\t创建时间'].concat(
-    rows.map(r => [r.no, r.base, r.ext, r.time].join('\t'))
-  ).join('\n');
+  const aoa = inventoryAOA(false);
+  const text = aoa.map(r => r.map(c => c == null ? '' : c).join('\t')).join('\n');
   navigator.clipboard.writeText(text).then(
-    () => toast('已复制 ' + rows.length + ' 行清单', 'success'),
+    () => toast('已复制 ' + (aoa.length - 1) + ' 行清单', 'success'),
     () => toast('复制失败', 'error')
   );
 }
