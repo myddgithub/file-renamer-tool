@@ -102,7 +102,8 @@
   .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
   .toolbar-opts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .toolbar-opts label { font-size:12px; color:#4b5563; display:flex; align-items:center; gap:4px; white-space:nowrap; }
-  .toolbar-opts select { width:auto; padding:4px 6px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; }
+  .toolbar-opts select, .toolbar-opts input[type="number"] { width:auto; padding:4px 6px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; }
+  .toolbar-opts input[type="number"] { width:72px; }
   .search-box { flex:1; min-width: 140px; padding: 5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;}
 
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -230,7 +231,7 @@
     <div class="toolbar">
       <input type="text" class="search-box" id="invSearch" placeholder="筛选名称或格式...">
       <div class="toolbar-opts">
-        <label>序号位数
+        <label>编号位数
           <select id="invPad" title="例如选 3 位则显示 001、002、003">
             <option value="1">1（1）</option>
             <option value="2">2（01）</option>
@@ -239,6 +240,9 @@
             <option value="5">5（00001）</option>
             <option value="6">6（000001）</option>
           </select>
+        </label>
+        <label>起始数
+          <input type="number" id="invStart" value="1" min="0" step="1" title="第一个文件的编号">
         </label>
         <label>排序
           <select id="invSort">
@@ -250,16 +254,16 @@
         <label style="cursor:pointer;"><input type="checkbox" id="invMerge" style="accent-color:#2563eb;"> 按名称合并</label>
       </div>
       <button class="btn btn-secondary" id="btnCopyInv">复制</button>
-      <button class="btn btn-secondary" id="btnExportInv">导出清单</button>
+      <button class="btn btn-secondary" id="btnExportInv" title="写入当前文件夹，文件名为 list.xlsx">导出清单</button>
       <button class="btn btn-primary" id="btnExportTpl">导出模板</button>
       <button class="btn btn-secondary" id="btnWriteInv">写入文件夹</button>
-      <button class="btn btn-secondary" id="btnLoadInv" title="读取本文件夹里已填好新名称的清单，作为对照表">载入对照</button>
+      <button class="btn btn-secondary" id="btnLoadInv" title="重新读取本文件夹里的 list.xlsx，作为对照表">载入对照</button>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th style="width:64px;">序号</th>
+            <th style="width:72px;">编号</th>
             <th>名称</th>
             <th style="width:120px;">格式</th>
             <th style="width:170px;">创建时间</th>
@@ -449,7 +453,7 @@
   </div>
 
   <div class="card" id="excelCard">
-    <h2><span class="step">3</span> Excel 对照改名 <span class="sub">可选</span></h2>
+    <h2><span class="step">3</span> Excel 对照改名 <span class="sub">选文件夹时，若有 list.xlsx 会自动载入</span></h2>
     <div class="excel-drop" id="excelDrop">
       <span class="big" id="excelDropTitle">点击或拖入 Excel / CSV</span>
       <span class="small">xlsx / xls / csv / tsv · 仅本地读取</span>
@@ -588,7 +592,7 @@ const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 const PRESET_KEY = 'file-renamer-presets-v2';
 const HISTORY_NAME = '.rename_history.json';
-const INVENTORY_NAME = '文件清单.xlsx';
+const INVENTORY_NAME = 'list.xlsx';
 
 try { presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}') || {}; } catch(e){ presets = {}; }
 
@@ -631,7 +635,11 @@ function formatDateTime(ms){
 }
 
 function isSkippedListFile(name){
-  return name === HISTORY_NAME || name === INVENTORY_NAME || name.startsWith('.__renaming_');
+  const lower = String(name).toLowerCase();
+  return lower === HISTORY_NAME.toLowerCase()
+    || lower === INVENTORY_NAME.toLowerCase()
+    || lower === '文件清单.xlsx'
+    || String(name).startsWith('.__renaming_');
 }
 
 function parseExtraImportExts(text){
@@ -759,8 +767,7 @@ $('btnSelect').addEventListener('click', async () => {
   try {
     dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     useFilePicker = false;
-    await loadFromDirectory();
-    if(history.length) toast('发现该文件夹的重命名记录，可在底部回滚', 'success');
+    await openSelectedFolder();
   } catch(e){
     if(e.name === 'AbortError') return;
     toast('无法访问文件夹：' + e.message, 'error');
@@ -848,8 +855,7 @@ $('folderDrop').addEventListener('drop', async e => {
     if(handle.kind !== 'directory'){ toast('请拖入文件夹，而不是单个文件', 'error'); return; }
     dirHandle = handle;
     useFilePicker = false;
-    await loadFromDirectory();
-    if(history.length) toast('发现该文件夹的重命名记录，可在底部回滚', 'success');
+    await openSelectedFolder();
   } catch(err){
     toast('无法读取拖入的文件夹', 'error');
   }
@@ -861,8 +867,14 @@ function inventoryPadWidth(){
   return Math.max(1, Math.min(6, isNaN(n) ? 3 : n));
 }
 
-function formatInvNo(n){
-  return pad(n, inventoryPadWidth());
+function inventoryStart(){
+  const n = parseInt($('invStart').value, 10);
+  if(!isFinite(n)) return 1;
+  return Math.max(0, n);
+}
+
+function formatInvNo(index){
+  return pad(inventoryStart() + index, inventoryPadWidth());
 }
 
 function getInventoryRows(){
@@ -890,7 +902,7 @@ function getInventoryRows(){
       if(f.mtime && (!g.time || f.mtime < g.time)) g.time = f.mtime;
     });
     return [...map.values()].map((g, i) => ({
-      no: formatInvNo(i + 1),
+      no: formatInvNo(i),
       base: g.base,
       ext: g.exts.join(', '),
       time: formatDateTime(g.time)
@@ -899,7 +911,7 @@ function getInventoryRows(){
 
   return list.map((f, i) => {
     const { base, ext } = splitExt(f.name);
-    return { no: formatInvNo(i + 1), base, ext, time: formatDateTime(f.mtime) };
+    return { no: formatInvNo(i), base, ext, time: formatDateTime(f.mtime) };
   });
 }
 
@@ -935,7 +947,7 @@ function renderInventory(){
 }
 
 function inventoryAOA(withNewCol){
-  const header = ['序号', '名称', '格式', '创建时间'];
+  const header = ['编号', '名称', '格式', '创建时间'];
   if(withNewCol) header.push('新名称');
   return [header].concat(getInventoryRows().map(r => {
     const line = [r.no, r.base, r.ext, r.time];
@@ -968,13 +980,33 @@ function inventoryFileName(kind){
   return `文件${suffix}-${folder}.xlsx`;
 }
 
-function exportInventory(withNewCol){
+async function writeXlsxToFolder(wb){
+  const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const fh = await dirHandle.getFileHandle(INVENTORY_NAME, { create: true });
+  const w = await fh.createWritable();
+  await w.write(data);
+  await w.close();
+}
+
+async function exportInventory(withNewCol){
   if(!files.length){ toast('请先选择文件夹', 'error'); return; }
   try {
     const wb = buildInventoryWorkbook(inventoryAOA(withNewCol));
-    XLSX.writeFile(wb, withNewCol ? inventoryFileName('tpl') : inventoryFileName('list'));
-    toast(withNewCol ? '已导出对照模板，请填写「新名称」列' : '已导出文件清单', 'success');
+    if(!withNewCol && dirHandle && !useFilePicker){
+      await writeXlsxToFolder(wb);
+      toast('已写入当前文件夹的 ' + INVENTORY_NAME, 'success');
+      return;
+    }
+    XLSX.writeFile(wb, withNewCol ? inventoryFileName('tpl') : INVENTORY_NAME);
+    toast(withNewCol ? '已导出对照模板，请填写「新名称」列' : '已下载 ' + INVENTORY_NAME, 'success');
   } catch(e){
+    if(!withNewCol && dirHandle && !useFilePicker){
+      try {
+        XLSX.writeFile(buildInventoryWorkbook(inventoryAOA(false)), INVENTORY_NAME);
+        toast('无法写入文件夹，已改为下载 ' + INVENTORY_NAME, 'error');
+        return;
+      } catch(e2){}
+    }
     toast('导出失败：' + e.message, 'error');
   }
 }
@@ -984,11 +1016,7 @@ async function writeInventoryToFolder(){
   if(!files.length){ toast('没有可写入的文件', 'error'); return; }
   try {
     const wb = buildInventoryWorkbook(inventoryAOA(true));
-    const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const fh = await dirHandle.getFileHandle(INVENTORY_NAME, { create: true });
-    const w = await fh.createWritable();
-    await w.write(data);
-    await w.close();
+    await writeXlsxToFolder(wb);
     toast('已写入 ' + INVENTORY_NAME + '（含空的「新名称」列）', 'success');
   } catch(e){
     toast('无法写入清单：' + e.message, 'error');
@@ -1000,21 +1028,19 @@ async function loadInventoryAsMap(){
   try {
     const fh = await dirHandle.getFileHandle(INVENTORY_NAME);
     const file = await fh.getFile();
-    await loadExcelFile(file);
-    if($('oldCol') && [...$('oldCol').options].some(o => o.value === '名称')) $('oldCol').value = '名称';
-    if($('newCol') && [...$('newCol').options].some(o => o.value === '新名称')) $('newCol').value = '新名称';
-    applyExcelSelection();
-    refresh();
-    toast('已载入文件夹中的清单作为对照表', 'success');
+    const ok = await loadExcelFile(file, { preferSheet: '数据', quiet: true });
+    if(!ok) return;
+    preferListColumns();
+    toast('已载入文件夹中的 ' + INVENTORY_NAME + ' 作为对照表', 'success');
   } catch(e){
-    toast('未找到 ' + INVENTORY_NAME + '，请先「写入当前文件夹」并填好新名称', 'error');
+    toast('未找到 ' + INVENTORY_NAME, 'error');
   }
 }
 
 function copyInventory(){
   if(!files.length){ toast('没有文件', 'error'); return; }
   const rows = getInventoryRows();
-  const text = ['序号\t名称\t格式\t创建时间'].concat(
+  const text = ['编号\t名称\t格式\t创建时间'].concat(
     rows.map(r => [r.no, r.base, r.ext, r.time].join('\t'))
   ).join('\n');
   navigator.clipboard.writeText(text).then(
@@ -1023,7 +1049,8 @@ function copyInventory(){
   );
 }
 
-['invSort', 'invMerge', 'invPad'].forEach(id => $(id).addEventListener('change', renderInventory));
+['invSort', 'invMerge', 'invPad', 'invStart'].forEach(id => $(id).addEventListener('change', renderInventory));
+$('invStart').addEventListener('input', renderInventory);
 $('invSearch').addEventListener('input', renderInventory);
 $('btnCopyInv').addEventListener('click', copyInventory);
 $('btnExportInv').addEventListener('click', () => exportInventory(false));
@@ -1168,8 +1195,8 @@ $('excelInput').addEventListener('change', e => {
   e.target.value = '';
 });
 
-async function loadExcelFile(file){
-  if(typeof XLSX === 'undefined'){ toast('Excel 解析库未加载，请检查网络', 'error'); return; }
+async function loadExcelFile(file, opts = {}){
+  if(typeof XLSX === 'undefined'){ toast('Excel 解析库未加载，请检查网络', 'error'); return false; }
   try {
     const buf = await file.arrayBuffer();
     workbook = XLSX.read(buf, { type: 'array', cellDates: true });
@@ -1181,12 +1208,53 @@ async function loadExcelFile(file){
       o.value = n; o.textContent = n;
       sel.appendChild(o);
     });
+    let sheetName = workbook.SheetNames[0];
+    if(opts.preferSheet && workbook.SheetNames.includes(opts.preferSheet)) sheetName = opts.preferSheet;
+    sel.value = sheetName;
     $('excelReady').classList.remove('hidden');
-    loadSheet(workbook.SheetNames[0]);
-    toast('已读取表格「' + file.name + '」', 'success');
+    loadSheet(sheetName);
+    if(!opts.quiet) toast('已读取表格「' + file.name + '」', 'success');
+    return true;
   } catch(err){
     toast('无法读取表格：' + err.message, 'error');
+    return false;
   }
+}
+
+async function openSelectedFolder(){
+  await loadFromDirectory();
+  const importedList = await tryImportListXlsx();
+  if(importedList && history.length){
+    toast('已读取 list.xlsx 作为对照表，这个文件夹还有可回滚的重命名记录', 'success');
+  } else if(importedList){
+    toast('已读取 list.xlsx，作为对照表', 'success');
+  } else if(history.length){
+    toast('发现该文件夹的重命名记录，可在底部回滚', 'success');
+  }
+}
+
+async function tryImportListXlsx(){
+  if(useFilePicker || !dirHandle) return false;
+  let file;
+  try {
+    const fh = await dirHandle.getFileHandle(INVENTORY_NAME);
+    file = await fh.getFile();
+  } catch(e){
+    return false;
+  }
+  const ok = await loadExcelFile(file, { preferSheet: '数据', quiet: true });
+  if(ok) preferListColumns();
+  return !!ok;
+}
+
+function preferListColumns(){
+  const has = (id, name) => [...$(id).options].some(o => o.value === name);
+  if(has('oldCol', '名称')) $('oldCol').value = '名称';
+  else if(has('oldCol', '篇目')) $('oldCol').value = '篇目';
+  if(has('newCol', '新名称')) $('newCol').value = '新名称';
+  else if(has('newCol', '编号') && $('oldCol').value !== '编号') $('newCol').value = '编号';
+  applyExcelSelection();
+  refresh();
 }
 
 $('sheetSelect').addEventListener('change', () => loadSheet($('sheetSelect').value));
@@ -1214,9 +1282,9 @@ function fillColSelects(){
   fill(newSel, false);
   fill(extraSel, true);
   if(excelCols.length){
-    oldSel.value = guessCol(excelCols, ['原名称','原文件','原名','旧名','当前名称','名称','old','filename','文件名','标题','案名','编号'], excelCols[0]);
+    oldSel.value = guessCol(excelCols, ['原名称','原文件','原名','旧名','当前名称','名称','old','filename','文件名','标题','篇目','案名','编号'], excelCols[0]);
     const rest = excelCols.filter(c => c !== oldSel.value);
-    newSel.value = guessCol(rest, ['新名称','新文件','新名','目标','new','案号','重命名'], rest[0] || excelCols[0]);
+    newSel.value = guessCol(rest, ['新名称','新文件','新名','目标','new','案号','重命名','编号'], rest[0] || excelCols[0]);
     extraSel.value = guessCol(excelCols, ['附加','备注','extra','说明','信息','说话人','speaker'], '') || '';
     if(extraSel.value === oldSel.value || extraSel.value === newSel.value) extraSel.value = '';
   }
