@@ -256,8 +256,7 @@
       <button class="btn btn-secondary" id="btnCopyInv">复制</button>
       <button class="btn btn-secondary" id="btnExportInv" title="写入当前文件夹的 list.xlsx；若已有同名文件则写为 list(2).xlsx">导出清单</button>
       <button class="btn btn-primary" id="btnExportTpl">导出模板</button>
-      <button class="btn btn-secondary" id="btnWriteInv" title="写入 list.xlsx；若已有同名文件则写为 list(2).xlsx">写入文件夹</button>
-      <button class="btn btn-secondary" id="btnLoadInv" title="重新读取本文件夹里的 list.xlsx，作为对照表">载入对照</button>
+      <button class="btn btn-secondary" id="btnLoadInv" title="把当前清单载入为对照表">载入对照</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -1046,30 +1045,23 @@ async function exportInventory(withNewCol){
   }
 }
 
-async function writeInventoryToFolder(){
-  if(useFilePicker || !dirHandle){ toast('写入磁盘需要先用「选择文件夹」', 'error'); return; }
-  if(!files.length){ toast('没有可写入的文件', 'error'); return; }
-  try {
-    const wb = buildInventoryWorkbook(inventoryAOA(true));
-    const name = await writeXlsxToFolder(wb);
-    toast('已写入 ' + name, 'success');
-  } catch(e){
-    toast('无法写入清单：' + e.message, 'error');
-  }
-}
-
-async function loadInventoryAsMap(){
-  if(useFilePicker || !dirHandle){ toast('请先选择文件夹', 'error'); return; }
-  try {
-    const fh = await dirHandle.getFileHandle(INVENTORY_NAME);
-    const file = await fh.getFile();
-    const ok = await loadExcelFile(file, { preferSheet: '数据', quiet: true });
-    if(!ok) return;
-    preferListColumns();
-    toast('已载入文件夹中的 ' + INVENTORY_NAME + ' 作为对照表', 'success');
-  } catch(e){
-    toast('未找到 ' + INVENTORY_NAME, 'error');
-  }
+function loadInventoryAsMap(){
+  if(!files.length){ toast('请先导入文件', 'error'); return; }
+  const aoa = inventoryAOA(false);
+  const header = aoa[0];
+  workbook = null;
+  excelRowsRaw = aoa.slice(1).map(line => {
+    const row = {};
+    header.forEach((col, i) => { row[col] = line[i] == null ? '' : line[i]; });
+    return row;
+  });
+  excelCols = header.slice();
+  $('excelFileName').textContent = '（当前清单）';
+  $('sheetSelect').innerHTML = '<option>当前清单</option>';
+  $('excelReady').classList.remove('hidden');
+  fillColSelects();
+  preferListColumns();
+  toast('已把当前清单载入对照', 'success');
 }
 
 function copyInventory(){
@@ -1088,7 +1080,6 @@ $('invSearch').addEventListener('input', renderInventory);
 $('btnCopyInv').addEventListener('click', copyInventory);
 $('btnExportInv').addEventListener('click', () => exportInventory(false));
 $('btnExportTpl').addEventListener('click', () => exportInventory(true));
-$('btnWriteInv').addEventListener('click', writeInventoryToFolder);
 $('btnLoadInv').addEventListener('click', loadInventoryAsMap);
 
 // ============ 规则 UI ============
@@ -1293,6 +1284,7 @@ function preferListColumns(){
 $('sheetSelect').addEventListener('change', () => loadSheet($('sheetSelect').value));
 
 function loadSheet(name){
+  if(!workbook || !workbook.Sheets || !workbook.Sheets[name]) return;
   const sheet = workbook.Sheets[name];
   excelRowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
   excelCols = excelRowsRaw.length ? Object.keys(excelRowsRaw[0]) : [];
