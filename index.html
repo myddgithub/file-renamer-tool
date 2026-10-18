@@ -498,7 +498,7 @@
         <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
         <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零</label>
       </div>
-      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
+      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。主名比对会折叠空白；如果只是标点不同，去掉标点后又能唯一对上一个文件，也会匹配。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
       <div id="unmatchedBox" class="unmatched-box hidden"></div>
     </div>
 
@@ -1323,33 +1323,70 @@ function fillColSelects(){
   if($(id).tagName === 'INPUT' && $(id).type !== 'checkbox') $(id).addEventListener('input', fn);
 });
 
+function rowCell(row, col){
+  if(!row || !col) return '';
+  if(Object.prototype.hasOwnProperty.call(row, col)) return row[col];
+  const want = String(col).replace(/^\uFEFF/, '').trim();
+  const key = Object.keys(row).find(k => String(k).replace(/^\uFEFF/, '').trim() === want);
+  return key == null ? '' : row[key];
+}
+
 function getExcelPairs(){
   const oldC = $('oldCol').value, newC = $('newCol').value, extraC = $('extraCol').value;
   if(!oldC || !newC) return [];
   return excelRowsRaw.map((row, i) => {
-    const oldVal = cellStr(row[oldC]);
-    const newVal = cellStr(row[newC]);
-    const extra = extraC ? cellStr(row[extraC]) : '';
+    const oldVal = cellStr(rowCell(row, oldC));
+    const newVal = cellStr(rowCell(row, newC));
+    const extra = extraC ? cellStr(rowCell(row, extraC)) : '';
     return { i, oldVal, newVal, extra };
   }).filter(r => r.oldVal !== '' && r.newVal !== '');
 }
 
+function normTitle(s){
+  let t = cellStr(s);
+  try { t = t.normalize('NFKC'); } catch(e){}
+  t = t.replace(/[\u200b-\u200d\ufeff]/g, '');
+  t = t.replace(/[\u00a0\u3000]/g, ' ');
+  t = t.replace(/\s+/g, ' ').trim();
+  t = t.replace(/\.(mp4|mkv|mov|avi|webm|wav|mp3|m4a|flac|aac|ogg|textgrid|lab|srt|txt)$/i, '');
+  if($('ignoreCase').checked) t = t.toLowerCase();
+  return t;
+}
+
+function looseTitle(s){
+  try { return normTitle(s).replace(/[^\p{L}\p{N}]+/gu, ''); }
+  catch(e){ return normTitle(s).replace(/[^\w\u4e00-\u9fff]+/g, ''); }
+}
+
+function titlesEqual(a, b){
+  if(a === b) return true;
+  return keysEqual(a, b);
+}
+
+function looseClose(a, b){
+  if(!a || !b || a.length < 8 || b.length < 8) return false;
+  if(a === b) return true;
+  const short = a.length <= b.length ? a : b;
+  const long = a.length <= b.length ? b : a;
+  return long.startsWith(short) && short.length / long.length >= 0.75;
+}
+
 function matchFileToExcel(file, pairs){
-  const { base } = splitExt(file.name);
+  const base = normTitle(splitExt(file.name).base);
+  const full = normTitle(file.name);
   const m = $('matchMode').value;
   for(const row of pairs){
-    const excelBase = splitExt(row.oldVal).base || row.oldVal;
+    const old = normTitle(row.oldVal);
+    if(!old) continue;
+    const excelBase = normTitle(splitExt(row.oldVal).base || row.oldVal);
     if(m === 'full'){
-      if(keysEqual(file.name, row.oldVal)) return row;
+      if(titlesEqual(full, old)) return row;
     } else if(m === 'exact'){
-      if(keysEqual(base, row.oldVal) || keysEqual(base, excelBase)) return row;
+      if(titlesEqual(base, old) || titlesEqual(base, excelBase)) return row;
     } else if(m === 'startswith'){
-      const fold = s => $('ignoreCase').checked ? String(s).toLowerCase() : String(s);
-      if(fold(file.name).startsWith(fold(row.oldVal)) || fold(base).startsWith(fold(excelBase))) return row;
+      if(full.startsWith(old) || base.startsWith(excelBase)) return row;
     } else if(m === 'contains'){
-      const fold = s => $('ignoreCase').checked ? String(s).toLowerCase() : String(s);
-      const key = fold(row.oldVal);
-      if(key && (fold(file.name).includes(key) || fold(base).includes(fold(excelBase)))) return row;
+      if(full.includes(old) || base.includes(excelBase)) return row;
     }
   }
   return null;
@@ -1363,11 +1400,23 @@ function applyExcelSelection(){
     f.excelRow = row;
     if(row) used.add(row.i);
   });
+  const mode = $('matchMode').value;
+  if(mode === 'exact' || mode === 'full'){
+    pairs.forEach(row => {
+      if(used.has(row.i)) return;
+      const key = looseTitle(row.oldVal);
+      const hits = files.filter(f => !f.excelRow && looseClose(looseTitle(splitExt(f.name).base), key));
+      if(hits.length === 1){
+        hits[0].excelRow = row;
+        used.add(row.i);
+      }
+    });
+  }
   unmatchedExcel = pairs.filter(p => !used.has(p.i));
   const box = $('unmatchedBox');
   if(unmatchedExcel.length){
     box.classList.remove('hidden');
-    box.innerHTML = `表格中有 <b>${unmatchedExcel.length}</b> 行没在文件夹里找到对应文件：<ul>` +
+    box.innerHTML = `表格 <b>${pairs.length}</b> 行里有 <b>${unmatchedExcel.length}</b> 行没在当前文件夹的 ${files.length} 个文件里找到同名篇目：<ul>` +
       unmatchedExcel.slice(0, 40).map(p => `<li>${escapeHtml(p.oldVal)} → ${escapeHtml(p.newVal)}</li>`).join('') +
       (unmatchedExcel.length > 40 ? `<li>… 还有 ${unmatchedExcel.length-40} 行</li>` : '') +
       '</ul>';
