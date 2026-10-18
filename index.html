@@ -498,7 +498,7 @@
         <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
         <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零</label>
       </div>
-      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。主名比对会折叠空白；如果只是标点不同，去掉标点后又能唯一对上一个文件，也会匹配。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
+      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。主名比对会折叠空白；如果只是标点不同，去掉标点后又能唯一对上一个文件，也会匹配。只打开 list.xlsx 时读不到旁边的 mp4，需要先选择它所在的文件夹。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
       <div id="unmatchedBox" class="unmatched-box hidden"></div>
     </div>
 
@@ -766,7 +766,7 @@ function guessCol(cols, keywords, fallback){
 }
 
 // ============ 文件夹选择 ============
-$('btnSelect').addEventListener('click', async () => {
+async function pickFolder(){
   if(!window.showDirectoryPicker){
     toast('当前浏览器不支持文件夹访问，请使用 Chrome / Edge', 'error');
     return;
@@ -779,7 +779,17 @@ $('btnSelect').addEventListener('click', async () => {
     if(e.name === 'AbortError') return;
     toast('无法访问文件夹：' + e.message, 'error');
   }
-});
+}
+
+$('btnSelect').addEventListener('click', pickFolder);
+
+async function* dirEntries(handle){
+  const iter = typeof handle.entries === 'function' ? handle.entries()
+    : (typeof handle.values === 'function' ? handle.values() : handle);
+  for await (const item of iter){
+    yield Array.isArray(item) ? item[1] : item;
+  }
+}
 
 async function loadFromDirectory(opts = {}){
   files = [];
@@ -788,7 +798,7 @@ async function loadFromDirectory(opts = {}){
     toast('请至少勾选一种导入格式', 'error');
   }
   let skippedExt = 0;
-  for await (const entry of dirHandle.values()){
+  for await (const entry of dirEntries(dirHandle)){
     if(entry.kind === 'file'){
       if(isSkippedListFile(entry.name)) continue;
       if(!extAllowedForImport(entry.name)){ skippedExt++; continue; }
@@ -1207,9 +1217,21 @@ $('excelDrop').addEventListener('click', () => $('excelInput').click());
   $('excelDrop').addEventListener(ev, e => { e.preventDefault(); $('excelDrop').classList.add('dragover'); });
 });
 $('excelDrop').addEventListener('dragleave', () => $('excelDrop').classList.remove('dragover'));
-$('excelDrop').addEventListener('drop', e => {
+$('excelDrop').addEventListener('drop', async e => {
   e.preventDefault();
   $('excelDrop').classList.remove('dragover');
+  const item = [...e.dataTransfer.items].find(i => i.kind === 'file');
+  if(item && item.getAsFileSystemHandle){
+    try {
+      const handle = await item.getAsFileSystemHandle();
+      if(handle.kind === 'directory'){
+        dirHandle = handle;
+        useFilePicker = false;
+        await openSelectedFolder();
+        return;
+      }
+    } catch(err){}
+  }
   const f = e.dataTransfer.files[0];
   if(f) loadExcelFile(f);
 });
@@ -1381,6 +1403,7 @@ function matchFileToExcel(file, pairs){
     const excelBase = normTitle(splitExt(row.oldVal).base || row.oldVal);
     if(m === 'full'){
       if(titlesEqual(full, old)) return row;
+      if(!splitExt(row.oldVal).ext && titlesEqual(base, excelBase)) return row;
     } else if(m === 'exact'){
       if(titlesEqual(base, old) || titlesEqual(base, excelBase)) return row;
     } else if(m === 'startswith'){
@@ -1414,9 +1437,23 @@ function applyExcelSelection(){
   }
   unmatchedExcel = pairs.filter(p => !used.has(p.i));
   const box = $('unmatchedBox');
+  if(!pairs.length){
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const matched = pairs.length - unmatchedExcel.length;
+  if(!files.length){
+    box.classList.remove('hidden');
+    box.innerHTML = `已读到 <b>${pairs.length}</b> 行篇目，页面里还没有视频，所以这 ${pairs.length} 行都会显示找不到。只打开 list.xlsx 读不到旁边的 mp4，请选择该表格所在的文件夹。<div style="margin-top:6px;"><button type="button" class="btn btn-primary" id="btnPickFolderForExcel">选择视频所在文件夹</button></div>`;
+    const btn = $('btnPickFolderForExcel');
+    if(btn) btn.addEventListener('click', pickFolder);
+    return;
+  }
   if(unmatchedExcel.length){
     box.classList.remove('hidden');
-    box.innerHTML = `表格 <b>${pairs.length}</b> 行里有 <b>${unmatchedExcel.length}</b> 行没在当前文件夹的 ${files.length} 个文件里找到同名篇目：<ul>` +
+    const sample = files[0] ? `当前文件夹里的文件例如「${escapeHtml(files[0].name)}」。` : '';
+    box.innerHTML = `已对应 <b>${matched}</b> 个文件。表格 ${pairs.length} 行里有 <b>${unmatchedExcel.length}</b> 行在这 ${files.length} 个文件里没有同名篇目。${matched ? '' : sample}<ul>` +
       unmatchedExcel.slice(0, 40).map(p => `<li>${escapeHtml(p.oldVal)} → ${escapeHtml(p.newVal)}</li>`).join('') +
       (unmatchedExcel.length > 40 ? `<li>… 还有 ${unmatchedExcel.length-40} 行</li>` : '') +
       '</ul>';
