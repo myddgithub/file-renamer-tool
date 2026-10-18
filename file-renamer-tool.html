@@ -19,9 +19,43 @@
     color: #fff;
     padding: 12px 20px;
     box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
-  header h1 { font-size: 18px; margin-bottom: 2px; }
-  header p { font-size: 12px; opacity: .85; }
+  header h1 { font-size: 18px; }
+  .btn-header {
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.4);
+  }
+  .btn-header:hover { background: rgba(255,255,255,.28); }
+  .help-modal {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(15,23,42,.45);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 28px 14px;
+  }
+  .help-panel {
+    background: #fff; color: #1f2937;
+    width: min(720px, 100%);
+    max-height: calc(100vh - 56px);
+    overflow: auto;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.22);
+  }
+  .help-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-bottom: 1px solid #e5e7eb;
+    position: sticky; top: 0; background: #fff;
+  }
+  .help-head h2 { font-size: 16px; margin: 0; }
+  .help-body { padding: 4px 16px 18px; font-size: 13px; line-height: 1.6; color: #374151; }
+  .help-body h3 { font-size: 13px; margin: 14px 0 6px; color: #111827; }
+  .help-body ul { margin-left: 1.15em; }
+  .help-body li { margin: 3px 0; }
+  .help-body code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: #f3f4f6; padding: 0 4px; border-radius: 3px; }
   .container { max-width: 1180px; margin: 12px auto; padding: 0 14px; display:flex; flex-direction:column; }
   #folderCard { order: 1; }
   #inventoryCard { order: 2; }
@@ -77,8 +111,6 @@
   .import-exts input[type="text"] {
     width: 8.5em; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;
   }
-  .browser-note { font-size: 11px; color: #9ca3af; margin-top: 6px; }
-
   .rules-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   @media (max-width: 980px){ .rules-grid{grid-template-columns:repeat(3,1fr);} }
   @media (max-width: 720px){ .rules-grid{grid-template-columns:1fr 1fr;} }
@@ -145,7 +177,6 @@
   .history table td { font-size:12px; padding:4px 8px;}
   .history .hdr { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;}
 
-  .footer { text-align:center; color:#9ca3af; font-size:11px; padding: 12px; }
   .hidden { display: none !important; }
 
   .excel-drop {
@@ -161,7 +192,6 @@
   .excel-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   @media (max-width: 800px){ .excel-map { grid-template-columns: 1fr 1fr; } }
   .field label { display:block; font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; }
-  .hint { font-size:11px; color:#6b7280; margin-top:6px; line-height:1.45; }
   .match-opts { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:8px; font-size:12px; color:#374151; }
   .match-opts label { display:flex; align-items:center; gap:5px; cursor:pointer; }
   .match-opts input { accent-color:#2563eb; }
@@ -175,7 +205,6 @@
     font-size:11px; cursor:pointer; color:#4b5563;
   }
   .ext-filters button.on { background:#2563eb; border-color:#2563eb; color:#fff; }
-  .preview-note { font-size:11px; color:#9ca3af; margin-top:4px; }
   textarea.paste-map {
     width:100%; min-height:64px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px;
     font-size:12px; font-family: ui-monospace, Consolas, monospace; resize:vertical;
@@ -191,8 +220,49 @@
 <body>
 <header>
   <h1>📁 文件批量重命名工具</h1>
-  <p>选一次文件夹，自动生成文件清单，Excel 对照和规则可同时用在同一批文件上 → 预览 → 一键应用（可回滚）。全部在本地完成。</p>
+  <button type="button" class="btn btn-header" id="btnHelp">帮助</button>
 </header>
+
+<div id="helpModal" class="help-modal hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="help-panel">
+    <div class="help-head">
+      <h2 id="helpTitle">帮助</h2>
+      <button type="button" class="btn btn-secondary" id="btnHelpClose">关闭</button>
+    </div>
+    <div class="help-body">
+      <h3>使用步骤</h3>
+      <ul>
+        <li>点「选择文件夹」，或把文件夹拖进选择区。默认只列出 mp4。改勾选后会按新格式重新列出当前文件夹。「全部」只勾上这一排里的格式。其他扩展名写在「其他」里，用顿号或逗号分开。</li>
+        <li>「选择多个文件」只能预览，不能写回磁盘，也不能把清单写进文件夹。</li>
+        <li>清单里的「篇目」是文件主名。「编号」按「编号位数」和「起始数」生成，默认从 001 起。导出清单写到当前文件夹的 <code>list.xlsx</code>；这个名字已经存在时写成 <code>list(2).xlsx</code>、<code>list(3).xlsx</code>。导出模板会多一列空的「新名称」。</li>
+        <li>「载入对照」用的是屏幕上这份清单：原名取篇目，新名取编号，并换掉已经打开的表格。</li>
+        <li>选中的文件夹里如果有 <code>list.xlsx</code>，会自动载入工作表「数据」。原名列优先「名称」或「篇目」，新名列优先「新名称」，否则用「编号」。</li>
+        <li>第 4 步的规则叠在对照结果后面。预设保存在这台浏览器里。</li>
+        <li>看完预览再点「应用重命名」。快捷键是 Ctrl+Enter。</li>
+        <li>「撤销上一次」或「全部回滚」。记录写在该文件夹的 <code>.rename_history.json</code>。再次选中同一文件夹仍可撤销。全部回滚后这份记录会删除。</li>
+      </ul>
+      <h3>对照技巧</h3>
+      <ul>
+        <li>下载器生成的清单：原文件名列选「篇目」，新文件名列选「编号」。篇目是标题，编号是 lydh081 这类代号。</li>
+        <li>只把 <code>list.xlsx</code> 拖进对照区时，页面里还没有 mp4，每一行都会显示找不到。先选择表格所在的文件夹，或点黄框里的「选择视频所在文件夹」。</li>
+        <li>黄框写「已对应 N 个文件」时，这 N 个会按新名列改名。剩下的行是文件夹里没有同名文件。</li>
+        <li>主名会先折叠连续空白。两边只是标点不同，并且去掉标点后只能对上唯一一个、至少 8 个字的文件时，也会配上。</li>
+        <li>默认匹配是「忽略后缀，主名完全相同」。篇目里通常没有 .mp4，用这个方式就能对上。「完整文件名」在原名没有后缀时，同样按主名比对。</li>
+        <li>新文件名 = 新名列 +（填了附加列就加上 _ 和附加信息）+ 原来的扩展名。同一主名下的 mp4、wav、TextGrid 会一起改，各自保留扩展名。</li>
+        <li>原名或新名为空的行会跳过。</li>
+        <li>没有表格时，展开「粘贴对照表」。每行是原名，中间用制表符、逗号或中文逗号，后面是新名。</li>
+        <li>双击预览里的新文件名，可以只改这一条。橙色是目标重名，红色是名称不合法，这两种都不会被应用。</li>
+      </ul>
+      <h3>其他</h3>
+      <ul>
+        <li>清单上的时间是浏览器读到的修改时间，和资源管理器里的创建日期可能不一样。</li>
+        <li><code>list.xlsx</code>、<code>list(2).xlsx</code> 和 <code>文件清单.xlsx</code> 不会被当成要改名的文件。</li>
+        <li>请用 Chrome 或 Edge 打开。选择文件夹时要允许读写，才能直接改名、写入清单。</li>
+        <li>文件只在这台电脑的浏览器里处理，不会上传。</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
 <div class="container">
   <div class="card" id="folderCard">
@@ -223,11 +293,10 @@
         <input type="text" id="importExtExtra" placeholder="wma、opus" spellcheck="false" autocomplete="off">
       </label>
     </div>
-    <p class="browser-note">选择文件夹或拖入文件夹时，只导入勾选的音视频格式，默认只有 mp4。「全部」只勾选上面这些格式。其他扩展名写在「其他」里，用顿号或逗号分开。改勾选会重新列出当前文件夹。点选多个文件时，仍导入你选中的那些文件。</p>
   </div>
 
   <div class="card" id="inventoryCard">
-    <h2><span class="step">2</span> 文件清单 <span class="sub">导出模板填「新名称」后，回到下一步对照</span></h2>
+    <h2><span class="step">2</span> 文件清单</h2>
     <div class="toolbar">
       <input type="text" class="search-box" id="invSearch" placeholder="筛选篇目或格式...">
       <div class="toolbar-opts">
@@ -279,12 +348,11 @@
     </div>
     <div class="summary">
       <span class="badge" id="invCount">0 个文件</span>
-      <span class="badge muted" id="invNote">浏览器只能读取修改时间，与资源管理器「创建日期」可能不同</span>
     </div>
   </div>
 
   <div class="card" id="rulesCard">
-    <h2><span class="step">4</span> 配置命名规则 <span class="sub">可叠在 Excel 对照之后</span></h2>
+    <h2><span class="step">4</span> 配置命名规则</h2>
     <div class="rules-grid">
       <div class="rule" id="rule-prefix">
         <label><input type="checkbox" data-rule="prefix"> 添加前缀</label>
@@ -456,7 +524,7 @@
   </div>
 
   <div class="card" id="excelCard">
-    <h2><span class="step">3</span> Excel 对照改名 <span class="sub">选文件夹时，若有 list.xlsx 会自动载入</span></h2>
+    <h2><span class="step">3</span> Excel 对照改名</h2>
     <div class="excel-drop" id="excelDrop">
       <span class="big" id="excelDropTitle">点击或拖入 Excel / CSV</span>
       <span class="small">xlsx / xls / csv / tsv · 仅本地读取</span>
@@ -474,7 +542,7 @@
       </div>
       <div class="excel-map">
         <div class="field">
-          <label>原文件名所在列（可不含后缀）</label>
+          <label>原文件名所在列</label>
           <select id="oldCol"></select>
         </div>
         <div class="field">
@@ -498,12 +566,11 @@
         <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
         <label><input type="checkbox" id="ignoreZeros" checked> 数字忽略前导零</label>
       </div>
-      <p class="hint">对照结果 = 新名主列 +（有附加列时自动加 _附加信息）+ <b>原扩展名</b>。同一原名下的 .wav / .mp4 / .TextGrid 会一起改。主名比对会折叠空白；如果只是标点不同，去掉标点后又能唯一对上一个文件，也会匹配。只打开 list.xlsx 时读不到旁边的 mp4，需要先选择它所在的文件夹。统一前缀、后缀、日期、简繁等请用下面的规则，会叠在对照结果上。</p>
       <div id="unmatchedBox" class="unmatched-box hidden"></div>
     </div>
 
     <details class="more">
-      <summary>没有 Excel？也可以粘贴对照表（每行：原名 + 制表符或逗号 + 新名）</summary>
+      <summary>粘贴对照表</summary>
       <div style="margin-top:10px;">
         <textarea class="paste-map" id="pasteMap" placeholder="001&#9;张三访谈&#10;002&#9;李四讲座"></textarea>
         <div style="margin-top:8px;">
@@ -529,7 +596,7 @@
             <th style="width:30px;"><input type="checkbox" id="checkAll"></th>
             <th>原文件名</th>
             <th style="width:30px;"></th>
-            <th>新文件名（可双击修改）</th>
+            <th>新文件名</th>
           </tr>
         </thead>
         <tbody id="tbody">
@@ -537,7 +604,6 @@
         </tbody>
       </table>
     </div>
-    <div class="preview-note">先按 Excel 对照（若已上传），再套用已勾选的规则。双击新文件名可单独改一条。橙色=目标名冲突，红色=名称不合法。</div>
     <div class="summary">
       <span class="badge" id="sumSelected">已选 0 项</span>
       <span class="badge ok" id="sumChange">将改名 0</span>
@@ -564,12 +630,10 @@
         <tbody id="historyBody"><tr><td colspan="3" class="empty">暂无操作记录</td></tr></tbody>
       </table>
     </div>
-    <p class="hint">记录保存在该文件夹的 <code>.rename_history.json</code>。选回同一文件夹仍可撤销；全部回滚后会删除这份记录。</p>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
-<div class="footer">🔒 所有操作均在本地浏览器完成，不会上传任何文件。重命名前请确认预览结果。快捷键：Ctrl+Enter 应用。</div>
 
 <script>
 // ============ 状态 ============
@@ -1869,9 +1933,20 @@ async function renameEntry(handle, newName){
   await dirHandle.removeEntry(handle.name);
 }
 
+function openHelp(){ $('helpModal').classList.remove('hidden'); }
+function closeHelp(){ $('helpModal').classList.add('hidden'); }
+$('btnHelp').addEventListener('click', openHelp);
+$('btnHelpClose').addEventListener('click', closeHelp);
+$('helpModal').addEventListener('click', e => { if(e.target === $('helpModal')) closeHelp(); });
+
 $('btnApply').addEventListener('click', applyRename);
 document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && !$('helpModal').classList.contains('hidden')){
+    closeHelp();
+    return;
+  }
   if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+    if(!$('helpModal').classList.contains('hidden')) return;
     if(!$('btnApply').disabled) applyRename();
   }
 });
